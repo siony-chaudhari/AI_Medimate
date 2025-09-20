@@ -5,6 +5,7 @@ import '/providers/auth_provider.dart';
 import '/providers/reminder_provider.dart';
 import '/providers/medicine_provider.dart';
 import '/providers/chat_provider.dart';
+import '/providers/settings_provider.dart';
 import '/screens/splash_screen.dart';
 import '/utils/constants.dart';
 import '/firebase_options.dart';
@@ -38,20 +39,24 @@ class MediMateAI extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ReminderProvider()),
         ChangeNotifierProvider(create: (_) => MedicineProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
-      child: MaterialApp(
-        title: 'MediMate AI',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          primaryColor: AppColors.primary,
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: AppColors.primary,
-            brightness: Brightness.light,
-          ),
-        ),
-        home: const SplashScreen(),
+      child: Consumer<SettingsProvider>(
+        builder: (context, settings, _) {
+          return MaterialApp(
+            title: 'MediMate AI',
+            debugShowCheckedModeBanner: false,
+            theme: settings.isDarkMode ? ThemeData.dark() : ThemeData.light(),
+            locale: Locale(
+              settings.language == "Hindi"
+                  ? "hi"
+                  : settings.language == "Marathi"
+                  ? "mr"
+                  : "en",
+            ),
+            home: const SplashScreen(),
+          );
+        },
       ),
     );
   }

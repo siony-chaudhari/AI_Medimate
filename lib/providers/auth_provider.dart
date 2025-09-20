@@ -31,6 +31,13 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
+  Future<void> fetchUser() async {
+    final firebaseUser = _auth.currentUser;
+    if (firebaseUser != null) {
+      await _fetchUserData(firebaseUser.uid);
+    }
+  }
+
   Future<void> _fetchUserData(String uid) async {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
@@ -145,8 +152,13 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> updateProfile({
     String? name,
-    String? phoneNumber,
+    String? phone,
     String? profileImageUrl,
+    int? age,
+    String? gender,
+    String? bloodGroup,
+    double? height,
+    double? weight,
   }) async {
     if (_user == null) return;
 
@@ -156,8 +168,13 @@ class AuthProvider with ChangeNotifier {
 
       final updatedUser = _user!.copyWith(
         name: name ?? _user!.name,
-        phoneNumber: phoneNumber ?? _user!.phoneNumber,
+        phone: phone ?? _user!.phone,
         profileImageUrl: profileImageUrl ?? _user!.profileImageUrl,
+        age: age ?? _user!.age,
+        gender: gender ?? _user!.gender,
+        bloodGroup: bloodGroup ?? _user!.bloodGroup,
+        height: height ?? _user!.height,
+        weight: weight ?? _user!.weight,
       );
 
       await _firestore

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/providers/auth_provider.dart';
+import 'finish_profile_screen.dart';
 import '/utils/constants.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -15,332 +16,98 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Header with user info
-              _buildHeader(),
-              
-              const SizedBox(height: 32),
-              
-              // Menu items
-              _buildMenuItems(),
-              
-              const SizedBox(height: 32),
-              
-              // Logout button
-              _buildLogoutButton(),
-              
-              const SizedBox(height: 40),
-            ],
+      appBar: AppBar(
+        title: const Text("Profile"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () async {
+              final updated = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FinishProfileScreen()),
+              );
+              if (updated == true) {
+                await Provider.of<AuthProvider>(context, listen: false).fetchUser();
+                setState(() {}); // refresh UI
+              }
+            },
           ),
-        ),
+        ],
       ),
-    );
-  }
+      body: Consumer<AuthProvider>(
+        builder: (context, authProvider, child) {
+          final user = authProvider.user;
 
-  Widget _buildHeader() {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.user;
-        
-        return Container(
-          padding: const EdgeInsets.all(AppSizes.paddingL),
-          child: Column(
-            children: [
-              // Profile picture
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(50),
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.3),
-                    width: 3,
+          if (user == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Profile Image
+                CircleAvatar(
+                  radius: 50,
+                  backgroundImage: (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty)
+                      ? NetworkImage(user.profileImageUrl!)
+                      : AssetImage('assets/Profile/avatar_placeholder.png') as ImageProvider,
+                  onBackgroundImageError: (_, __) {
+                    // Optionally handle error by reverting to placeholder
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Name
+                Text(
+                  user.name ?? "User",
+                  style: AppTextStyles.heading2.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                child: user?.profileImageUrl != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(47),
-                        child: Image.network(
-                          user!.profileImageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              Icons.person,
-                              size: 50,
-                              color: AppColors.primary,
-                            );
-                          },
-                        ),
-                      )
-                    : Icon(
-                        Icons.person,
-                        size: 50,
-                        color: AppColors.primary,
-                      ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // User name
-              Text(
-                user?.name ?? 'User',
-                style: AppTextStyles.heading2.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 8),
+
+                // Email
+                Text(
+                  user.email ?? "user@example.com",
+                  style: AppTextStyles.body2.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-              ),
-              
-              const SizedBox(height: 8),
-              
-              // User email
-              Text(
-                user?.email ?? 'user@example.com',
-                style: AppTextStyles.body2.copyWith(
-                  color: AppColors.textSecondary,
+                const SizedBox(height: 24),
+
+                // User Details
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildInfoRow("Phone", user.phone ?? "Not provided"),
+                      _buildInfoRow("Age", user.age?.toString() ?? "Not provided"),
+                      _buildInfoRow("Gender", user.gender ?? "Not specified"),
+                      _buildInfoRow("Blood Group", user.bloodGroup ?? "Not Provided"),
+                      _buildInfoRow("Height", user.height != null ? "${user.height} cm" : "Not Provided"),
+                      _buildInfoRow("Weight", user.weight != null ? "${user.weight} kg" : "Not Provided"),
+
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMenuItems() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-      child: Column(
-        children: [
-          _buildMenuItem(
-            icon: Icons.person_outline,
-            title: AppStrings.personalInfo,
-            subtitle: AppStrings.manageProfile,
-            onTap: () {
-              _showPersonalInfoDialog(context);
-            },
-          ),
-          _buildMenuItem(
-            icon: Icons.description_outlined,
-            title: AppStrings.myPrescriptions,
-            subtitle: AppStrings.viewPrescriptions,
-            onTap: () {
-              _showPrescriptionsDialog(context);
-            },
-          ),
-          _buildMenuItem(
-            icon: Icons.settings_outlined,
-            title: AppStrings.settings,
-            subtitle: AppStrings.customizeExperience,
-            onTap: () {
-              _showSettingsDialog(context);
-            },
-          ),
-          _buildMenuItem(
-            icon: Icons.help_outline,
-            title: AppStrings.helpSupport,
-            subtitle: AppStrings.getAssistance,
-            onTap: () {
-              _showHelpDialog(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSizes.paddingM),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(AppSizes.paddingM),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(AppSizes.radiusM),
-          ),
-          child: Icon(
-            icon,
-            color: AppColors.primary,
-            size: 24,
-          ),
-        ),
-        title: Text(
-          title,
-          style: AppTextStyles.body1.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: AppTextStyles.body2.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          color: AppColors.textSecondary.withOpacity(0.5),
-          size: 16,
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
-
-  Widget _buildLogoutButton() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-      child: ElevatedButton(
-        onPressed: () {
-          _showLogoutDialog(context);
+              ],
+            ),
+          );
         },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.error,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSizes.radiusM),
-          ),
-          elevation: 0,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.logout,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              AppStrings.logOut,
-              style: AppTextStyles.body1.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  void _showPersonalInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppStrings.personalInfo),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Name: ${Provider.of<AuthProvider>(context, listen: false).user?.name ?? 'N/A'}'),
-            Text('Email: ${Provider.of<AuthProvider>(context, listen: false).user?.email ?? 'N/A'}'),
-            Text('Phone: ${Provider.of<AuthProvider>(context, listen: false).user?.phoneNumber ?? 'Not provided'}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPrescriptionsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppStrings.myPrescriptions),
-        content: const Text('Prescription management feature coming soon!'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSettingsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppStrings.settings),
-        content: const Text('Settings and preferences feature coming soon!'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showHelpDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppStrings.helpSupport),
-        content: const Text('Help and support feature coming soon!'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Provider.of<AuthProvider>(context, listen: false).signOut();
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.error,
-            ),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
+  Widget _buildInfoRow(String label, String value) {
+    return ListTile(
+      title: Text(label, style: AppTextStyles.body1.copyWith(fontWeight: FontWeight.w600)),
+      trailing: Text(value, style: AppTextStyles.body2.copyWith(color: AppColors.textSecondary)),
     );
   }
 }
