@@ -14,17 +14,17 @@ dependencies:
 
 
   # Firebase (latest compatible set as of Sept 2025)
-  firebase_core: ^3.6.0
-  firebase_auth: ^5.3.1
-  cloud_firestore: ^5.4.3
-  firebase_messaging: ^15.1.2
-  firebase_storage: ^12.3.2
+  firebase_core: ^4.1.1
+  firebase_auth: ^6.1.0
+  cloud_firestore: ^6.0.2
+  firebase_messaging: ^16.0.2
+  firebase_storage: ^13.0.2
 
   # UI & Navigation
   cupertino_icons: ^1.0.2
   google_fonts: ^6.1.0
   flutter_svg: ^2.0.9
-  lottie: ^2.7.0
+  lottie: ^3.3.2
 
 
   # State Management
@@ -34,23 +34,27 @@ dependencies:
   sqflite: ^2.3.0
   shared_preferences: ^2.2.2
 
-#  # Notifications
-#  flutter_local_notifications: 15.1.2
+  #  # Notifications
+  #  flutter_local_notifications: 15.1.2
 
   # Image Processing & OCR
   image_picker: ^1.0.4
   camera: ^0.11.0+1
   tesseract_ocr: ^0.5.0
-#  opencv_4: ^1.0.0
+  file_picker: ^10.3.3
+  # ML Kit
+  google_mlkit_text_recognition: ^0.15.0
+  google_mlkit_commons: ^0.11.0
+  #  opencv_4: ^1.0.0
 
   # ML & AI
-  tflite_flutter: ^0.10.4
+  tflite_flutter: ^0.11.0
   http: ^1.1.0
 
   # Utilities
-  intl: ^0.18.1
+  intl: ^0.20.2
   uuid: ^4.2.1
-  permission_handler: ^11.1.0
+  permission_handler: ^12.0.1
   path_provider: ^2.1.1
 
 
@@ -59,7 +63,7 @@ dev_dependencies:
     sdk: flutter
 
 
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 
 flutter:
