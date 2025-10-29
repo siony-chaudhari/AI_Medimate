@@ -6,6 +6,8 @@ import '/providers/medicine_provider.dart';
 import '/screens/expiry_tracker_screen.dart';
 import '/screens/ai_chat_screen.dart';
 import '/utils/constants.dart';
+import '/screens/main/upload_prescription_screen.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,19 +29,19 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // Header with greeting
               _buildHeader(),
-              
+
               const SizedBox(height: 32),
-              
+
               // Quick access cards
               _buildQuickAccessCards(),
-              
+
               const SizedBox(height: 32),
-              
+
               // Next medicine section
               _buildNextMedicineSection(),
-              
+
               const SizedBox(height: 32),
-              
+
               // Today's summary
               _buildTodaySummary(),
             ],
@@ -53,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         final userName = authProvider.user?.name ?? 'User';
-        
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -102,12 +104,14 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.upload_file,
               color: AppColors.primary,
               onTap: () {
-                // TODO: Implement prescription upload
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Prescription upload coming soon!')),
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const UploadPrescriptionScreen(),
+                  ),
                 );
               },
             ),
+
             _buildQuickAccessCard(
               title: AppStrings.todayReminders,
               icon: Icons.access_time,
@@ -205,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, reminderProvider, child) {
         final todayReminders = reminderProvider.todayReminders;
         final nextReminder = todayReminders.isNotEmpty ? todayReminders.first : null;
-        
+
         if (nextReminder == null) {
           return Container(
             padding: const EdgeInsets.all(AppSizes.paddingL),
@@ -235,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         }
-        
+
         return Container(
           padding: const EdgeInsets.all(AppSizes.paddingL),
           decoration: BoxDecoration(
@@ -305,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final todayReminders = reminderProvider.todayReminders;
         final totalReminders = todayReminders.length;
         final completedReminders = reminderProvider.getTodayProgress();
-        
+
         return Container(
           padding: const EdgeInsets.all(AppSizes.paddingL),
           decoration: BoxDecoration(
