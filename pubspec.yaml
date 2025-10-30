@@ -20,12 +20,6 @@ dependencies:
   firebase_messaging: ^15.1.2
   firebase_storage: ^12.3.2
 
-  # Notifications
-  flutter_local_notifications: ^17.2.1+2
-  timezone: ^0.9.3
-
-
-
   # UI & Navigation
   cupertino_icons: ^1.0.2
   google_fonts: ^6.1.0
@@ -40,8 +34,12 @@ dependencies:
   sqflite: ^2.3.0
   shared_preferences: ^2.2.2
 
-#  # Notifications
-#  flutter_local_notifications: 15.1.2
+  # ---------------------------
+  # 🔔 Notifications & Timezone
+  # ---------------------------
+  flutter_local_notifications: ^17.2.1+2
+  timezone: ^0.9.3
+  flutter_native_timezone: ^2.0.0
 
   # Image Processing & OCR
   image_picker: ^1.0.4
@@ -58,7 +56,6 @@ dependencies:
   uuid: ^4.2.1
   permission_handler: ^11.1.0
   path_provider: ^2.1.1
-  flutter_timezone: ^5.0.0
 
 
 dev_dependencies:
