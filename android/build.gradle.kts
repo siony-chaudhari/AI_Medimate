@@ -4,16 +4,19 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.1.0") // keep your current version
-        classpath("com.google.gms:google-services:4.3.15") // <-- Add this
+        classpath("com.android.tools.build:gradle:8.5.0")
+        classpath("com.google.gms:google-services:4.4.2")
+        classpath(kotlin("gradle-plugin", version = "1.9.23"))
     }
 }
+
 allprojects {
     repositories {
         google()
         mavenCentral()
     }
 }
+
 
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
 rootProject.layout.buildDirectory.value(newBuildDir)
