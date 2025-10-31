@@ -4,69 +4,74 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 class OCRService {
   final TextRecognizer _textRecognizer = TextRecognizer();
 
-  // Existing basic OCR method (returns full text)
-  Future<String> extractTextFromImage(File image) async {
-    try {
-      final inputImage = InputImage.fromFile(image);
-      final RecognizedText recognizedText =
-      await _textRecognizer.processImage(inputImage);
-      return recognizedText.text;
-    } catch (e) {
-      print('OCR Error: $e');
-      return 'Error: $e';
-    }
-  }
+  Future<Map<String, dynamic>> extractMedicinesFromImage(File image) async {
+    final inputImage = InputImage.fromFile(image);
+    final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
 
-  Future<List<String>> extractMedicinesFromImage(File image) async {
-    final rawText = await extractTextFromImage(image);
-    final lines = rawText.split('\n');
-    final medicines = <String>[];
+    String text = recognizedText.text;
+    print("🔍 Raw OCR Text:\n$text\n");
 
-    // 1️⃣ Ignore all common non-medicine fields
-    final ignorePattern = RegExp(
-      r'(dr\.|doctor|hospital|clinic|address|date|age|name|prescription|diagnosis|rx|ref|signature|before food|after food|morning|evening|night|tablet count|qty|quantity|phone|mobile|take|tablets|capsules|use|directions|dose|1-0-1|0-1-0|ml|days|times)',
+    // Clean up text
+    text = text
+        .replaceAll(RegExp(r'[\t\r]+'), ' ')
+        .replaceAll(RegExp(r'\s{2,}'), ' ')
+        .trim();
+
+    // Extract doctor, hospital, and date
+    final doctorRegex = RegExp(r'(Dr\.?\s*[A-Z][a-zA-Z\s]*)');
+    final hospitalRegex = RegExp(r'([A-Z][A-Za-z\s]*(Hospital|Clinic|Medical|Nursing|Health)[A-Za-z\s]*)');
+    final dateRegex = RegExp(r'(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})');
+
+    final doctor = doctorRegex.firstMatch(text)?.group(0) ?? "Not found";
+    final hospital = hospitalRegex.firstMatch(text)?.group(0) ?? "Not found";
+    final date = dateRegex.firstMatch(text)?.group(0) ?? "Not found";
+
+    // Keep only medicine-related lines
+    final medicineSection = text
+        .split('\n')
+        .where((line) =>
+    line.trim().isNotEmpty &&
+        !RegExp(r'(name|age|sex|rx|dr\.|doctor|hospital|address|signature)',
+            caseSensitive: false)
+            .hasMatch(line))
+        .toList()
+        .join('\n');
+
+    // Improved medicine regex
+    final medicineRegex = RegExp(
+      r'([A-Z][A-Z0-9\-]+)\s+(\d+\s?(mg|ml|g|tab|caps)?)\s*([A-Z0-9]+)?\s*(\d+[dD])?',
       caseSensitive: false,
     );
 
-    // 2️⃣ Identify likely medicine-like lines (short, alphanumeric, optional mg/ml)
-    final medicinePattern = RegExp(
-      r'^[A-Za-z][A-Za-z0-9\- ]*(\s?\d{1,3}(mg|ml|mcg|g|iu|units)?)?$',
-      caseSensitive: false,
-    );
+    final medicines = <Map<String, String>>[];
+    final seen = <String>{};
 
-    // 3️⃣ Optional medicine hint words to catch brand types (e.g., syrup, tab, cap)
-    const whitelistHints = [
-      'tab', 'cap', 'syrup', 'ointment', 'drops', 'injection',
-      'gel', 'cream', 'suspension', 'solution', 'tablet', 'capsule', 'inhaler'
-    ];
+    for (final match in medicineRegex.allMatches(medicineSection)) {
+      final name = match.group(1)?.trim() ?? '';
+      final dosage = match.group(2)?.trim() ?? '';
+      final frequency = match.group(4)?.trim() ?? '';
+      final duration = match.group(5)?.trim() ?? 'Not specified';
 
-    for (var line in lines) {
-      var clean = line.trim();
+      if (name.isEmpty || seen.contains(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
 
-      // Skip short, empty, or irrelevant lines early
-      if (clean.isEmpty || clean.length < 3 || ignorePattern.hasMatch(clean)) continue;
-
-      // Remove punctuation & extra symbols
-      clean = clean.replaceAll(RegExp(r'[:;,]'), '').trim();
-
-      // Skip long descriptive/instruction lines
-      if (clean.split(' ').length > 5) continue;
-
-      // Match medicine-like lines or those with medical hints
-      if (medicinePattern.hasMatch(clean) ||
-          whitelistHints.any((hint) => clean.toLowerCase().contains(hint))) {
-        medicines.add(clean);
-      }
+      medicines.add({
+        "Medicine": name,
+        "Dosage": [dosage, frequency].where((e) => e.isNotEmpty).join(' '),
+        "Duration": duration,
+      });
     }
 
-    // Final cleanup: remove duplicates, trim, and filter noise
-    final unique = medicines
-        .map((e) => e.replaceAll(RegExp(r'[^A-Za-z0-9\s\-]'), '').trim())
-        .where((e) => e.length > 3)
-        .toSet()
-        .toList();
+    if (medicines.isEmpty) {
+      print("⚠️ No structured medicines found — check OCR quality.");
+    }
 
-    return unique;
+    return {
+      "Doctor": doctor,
+      "Hospital": hospital,
+      "Date": date,
+      "Medicines": medicines,
+    };
   }
 
   void dispose() {
