@@ -80,9 +80,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 
   Widget _buildDateSelector() {
-    return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
+    return SizedBox( // 🔹 use SizedBox to fix height exactly
+      height: 95, // increased to give enough vertical room
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
@@ -91,7 +90,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
           final date = DateTime.now().add(Duration(days: index - 3));
           final isSelected = _isSameDay(date, _selectedDate);
           final isToday = _isSameDay(date, DateTime.now());
-          
+
           return GestureDetector(
             onTap: () {
               setState(() {
@@ -102,36 +101,50 @@ class _RemindersScreenState extends State<RemindersScreen> {
               width: 60,
               margin: const EdgeInsets.only(right: AppSizes.paddingM),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center, // 🔹 centers vertically
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    DateFormat('E').format(date),
-                    style: AppTextStyles.caption.copyWith(
-                      color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  Flexible( // 🔹 prevents text from pushing past constraints
+                    child: Text(
+                      DateFormat('E').format(date),
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption.copyWith(
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                        fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: isSelected 
-                          ? AppColors.primary 
-                          : (isToday ? AppColors.primary.withOpacity(0.1) : Colors.transparent),
+                      color: isSelected
+                          ? AppColors.primary
+                          : (isToday
+                          ? AppColors.primary.withOpacity(0.1)
+                          : Colors.transparent),
                       borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                      border: isSelected 
-                          ? null 
+                      border: isSelected
+                          ? null
                           : Border.all(
-                              color: isToday ? AppColors.primary : AppColors.textSecondary.withOpacity(0.3),
-                            ),
+                        color: isToday
+                            ? AppColors.primary
+                            : AppColors.textSecondary.withOpacity(0.3),
+                      ),
                     ),
                     child: Center(
                       child: Text(
                         date.day.toString(),
                         style: AppTextStyles.body1.copyWith(
-                          color: isSelected 
-                              ? Colors.white 
-                              : (isToday ? AppColors.primary : AppColors.textSecondary),
+                          color: isSelected
+                              ? Colors.white
+                              : (isToday
+                              ? AppColors.primary
+                              : AppColors.textSecondary),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -145,6 +158,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
       ),
     );
   }
+
 
   Widget _buildTodayProgress() {
     return Consumer<ReminderProvider>(

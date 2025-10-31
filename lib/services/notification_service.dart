@@ -123,13 +123,18 @@ class NotificationService {
   Future<void> _initializeTimeZones() async {
     try {
       tz.initializeTimeZones();
-      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+
+      // ✅ Correct class name
+      final String timeZoneName = await FlutterNativeTimezone.getLocalTimezone();
+
       tz.setLocalLocation(tz.getLocation(timeZoneName));
-      print('Timezone initialized: $timeZoneName');
+      print('✅ Timezone initialized: $timeZoneName');
     } catch (e) {
-      print('Failed to initialize timezone: $e — falling back to UTC/local defaults.');
+      print('⚠️ Failed to initialize timezone: $e — falling back to UTC/local defaults.');
+      tz.setLocalLocation(tz.getLocation('UTC'));
     }
   }
+
 
   Future<void> _createAndroidNotificationChannels() async {
     final androidImpl = _localNotifications.resolvePlatformSpecificImplementation<

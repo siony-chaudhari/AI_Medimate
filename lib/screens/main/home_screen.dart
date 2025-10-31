@@ -7,6 +7,7 @@ import '/screens/expiry_tracker_screen.dart';
 import '/screens/ai_chat_screen.dart';
 import '/utils/constants.dart';
 import '/screens/main/upload_prescription_screen.dart';
+import '/screens/main/reminders_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -117,10 +118,14 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.access_time,
               color: AppColors.success,
               onTap: () {
-                // Navigate to reminders tab
-                // This will be handled by the main screen
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const RemindersScreen(),
+                  ),
+                );
               },
             ),
+
             _buildQuickAccessCard(
               title: AppStrings.expiryAlerts,
               icon: Icons.warning,
