@@ -41,12 +41,37 @@ class _RemindersScreenState extends State<RemindersScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddReminderDialog(context);
-        },
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Debug button
+          FloatingActionButton.small(
+            onPressed: () async {
+              // Test notification immediately
+              await NotificationService.showTestNotification();
+              
+              // Show pending notifications
+              await NotificationService.getAllPendingNotifications();
+              
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Test notification sent! Check logs for details.')),
+                );
+              }
+            },
+            backgroundColor: Colors.orange,
+            child: const Icon(Icons.bug_report, color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          // Add reminder button
+          FloatingActionButton(
+            onPressed: () {
+              _showAddReminderDialog(context);
+            },
+            backgroundColor: AppColors.primary,
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+        ],
       ),
     );
   }

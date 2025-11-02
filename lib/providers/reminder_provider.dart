@@ -398,7 +398,14 @@ class ReminderProvider with ChangeNotifier {
   Future<void> updateReminderTime(String id, TimeOfDay newTime) async {
     try {
       final index = _reminders.indexWhere((r) => r.id == id);
-      if (index == -1) return;
+      if (index == -1) {
+        print("❌ Reminder with ID $id not found");
+        return;
+      }
+
+      print("🔄 Updating reminder time for: ${_reminders[index].medicineName}");
+      print("🔄 Old time: ${_reminders[index].time.hour}:${_reminders[index].time.minute}");
+      print("🔄 New time: ${newTime.hour}:${newTime.minute}");
 
       // ✅ Create a new instance using copyWith (since time is final)
       final updatedReminder = _reminders[index].copyWith(
@@ -417,25 +424,40 @@ class ReminderProvider with ChangeNotifier {
       _updateTodayReminders();
       notifyListeners();
 
-      // ✅ Cancel old and schedule new notification
-      await NotificationService.cancelNotification(
-        updatedReminder.id.hashCode.abs() % 100000,
-      );
+      final notificationId = updatedReminder.id.hashCode.abs() % 100000;
+      print("🔄 Notification ID: $notificationId");
 
-      await NotificationService.scheduleNotification(
-        id: updatedReminder.id.hashCode.abs() % 100000,
-        title: "Time to take ${updatedReminder.medicineName}",
-        body: "Dosage: ${updatedReminder.dosage}",
-        scheduledTime: DateTime(
+      // ✅ Cancel old notification
+      await NotificationService.cancelNotification(notificationId);
+      print("🧹 Cancelled old notification");
+
+      // ✅ Only schedule new notification if notifications are enabled
+      if (updatedReminder.notificationsEnabled) {
+        final scheduledDateTime = DateTime(
           DateTime.now().year,
           DateTime.now().month,
           DateTime.now().day,
           newTime.hour,
           newTime.minute,
-        ),
-      );
+        );
+
+        print("🔔 Scheduling new notification for: $scheduledDateTime");
+
+        await NotificationService.scheduleNotification(
+          id: notificationId,
+          title: "Time to take ${updatedReminder.medicineName}",
+          body: "Dosage: ${updatedReminder.dosage}",
+          scheduledTime: scheduledDateTime,
+        );
+        
+        print("✅ New notification scheduled successfully");
+      } else {
+        print("🔕 Notifications disabled for this reminder");
+      }
+
     } catch (e) {
       _error = 'Failed to update reminder time: $e';
+      print("❌ Error updating reminder time: $e");
       notifyListeners();
     }
   }

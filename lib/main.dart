@@ -17,11 +17,26 @@ import 'package:android_intent_plus/flag.dart';
 /// 🔔 Request Exact Alarm Permission (for Android 12+)
 Future<void> requestExactAlarmPermission() async {
   if (Platform.isAndroid) {
-    final intent = AndroidIntent(
-      action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-      flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
-    );
-    await intent.launch();
+    try {
+      // First check if we can schedule exact alarms
+      final android = NotificationService.getAndroidImplementation();
+      final canScheduleExactAlarms = await android?.canScheduleExactNotifications() ?? false;
+      
+      print("📱 Can schedule exact alarms: $canScheduleExactAlarms");
+      
+      if (!canScheduleExactAlarms) {
+        print("⚠️ Exact alarm permission not granted, requesting...");
+        final intent = AndroidIntent(
+          action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+          flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+        );
+        await intent.launch();
+      } else {
+        print("✅ Exact alarm permission already granted");
+      }
+    } catch (e) {
+      print("❌ Error checking exact alarm permission: $e");
+    }
   }
 }
 
