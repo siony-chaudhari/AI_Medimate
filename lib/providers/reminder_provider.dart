@@ -20,6 +20,22 @@ class ReminderProvider with ChangeNotifier {
 
   ReminderProvider() {
     _loadReminders();
+    _listenToReminderChanges();
+  }
+
+  /// Listen to real-time changes in reminders collection
+  void _listenToReminderChanges() {
+    _firestore
+        .collection('reminders')
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .listen((snapshot) {
+      _reminders = snapshot.docs
+          .map((doc) => ReminderModel.fromJson({...doc.data(), 'id': doc.id}))
+          .toList();
+      _updateTodayReminders();
+      notifyListeners();
+    });
   }
 
   Future<void> _loadReminders() async {
@@ -257,6 +273,34 @@ class ReminderProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  /// Handle notification action (called from notification service)
+  static Future<void> handleNotificationAction(String reminderId, String action) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final now = DateTime.now();
+      
+      switch (action) {
+        case 'taken':
+          await firestore.collection('reminders').doc(reminderId).update({
+            'status': 'taken',
+            'takenAt': now.toIso8601String(),
+            'updatedAt': now.toIso8601String(),
+          });
+          break;
+          
+        case 'missed':
+          await firestore.collection('reminders').doc(reminderId).update({
+            'status': 'missed',
+            'missedAt': now.toIso8601String(),
+            'updatedAt': now.toIso8601String(),
+          });
+          break;
+      }
+    } catch (e) {
+      print("❌ Error handling notification action: $e");
+    }
+  }
   Future<void> addReminderFromOCR(Map<String, String> med) async {
     final medicineName = med['Medicine'] ?? 'Unknown';
     final dosage = med['Dosage'] ?? 'Not specified';
@@ -292,8 +336,8 @@ class ReminderProvider with ChangeNotifier {
       // 🔔 Schedule a local notification (daily reminder)
       await NotificationService.scheduleNotification(
         id: reminder.id.hashCode.abs() % 100000, // safe integer ID
-        title: "Time to take ${reminder.medicineName}",
-        body: "Dosage: ${reminder.dosage} | Duration: $duration",
+        title: "It's time to take your ${reminder.medicineName}",
+        body: "Dosage: ${reminder.dosage}",
         scheduledTime: DateTime(
           DateTime.now().year,
           DateTime.now().month,
@@ -301,6 +345,8 @@ class ReminderProvider with ChangeNotifier {
           reminder.time.hour,
           reminder.time.minute,
         ),
+        reminderId: reminder.id,
+        medicineName: reminder.medicineName,
       );
 
       notifyListeners();
@@ -333,7 +379,7 @@ class ReminderProvider with ChangeNotifier {
       if (enabled) {
         await NotificationService.scheduleNotification(
           id: updatedReminder.id.hashCode.abs() % 100000,
-          title: "Time to take ${updatedReminder.medicineName}",
+          title: "It's time to take your ${updatedReminder.medicineName}",
           body: "Dosage: ${updatedReminder.dosage}",
           scheduledTime: DateTime(
             DateTime.now().year,
@@ -342,6 +388,8 @@ class ReminderProvider with ChangeNotifier {
             updatedReminder.time.hour,
             updatedReminder.time.minute,
           ),
+          reminderId: updatedReminder.id,
+          medicineName: updatedReminder.medicineName,
         );
       } else {
         await NotificationService.cancelNotification(updatedReminder.id.hashCode.abs() % 100000);
@@ -378,7 +426,7 @@ class ReminderProvider with ChangeNotifier {
       // ✅ Schedule new notification at the updated time
       await NotificationService.scheduleNotification(
         id: updatedReminder.id.hashCode.abs() % 100000,
-        title: "Time to take ${updatedReminder.medicineName}",
+        title: "It's time to take your ${updatedReminder.medicineName}",
         body: "Dosage: ${updatedReminder.dosage}",
         scheduledTime: DateTime(
           DateTime.now().year,
@@ -387,6 +435,8 @@ class ReminderProvider with ChangeNotifier {
           updatedReminder.time.hour,
           updatedReminder.time.minute,
         ),
+        reminderId: updatedReminder.id,
+        medicineName: updatedReminder.medicineName,
       );
 
     } catch (e) {
@@ -445,9 +495,11 @@ class ReminderProvider with ChangeNotifier {
 
         await NotificationService.scheduleNotification(
           id: notificationId,
-          title: "Time to take ${updatedReminder.medicineName}",
+          title: "It's time to take your ${updatedReminder.medicineName}",
           body: "Dosage: ${updatedReminder.dosage}",
           scheduledTime: scheduledDateTime,
+          reminderId: updatedReminder.id,
+          medicineName: updatedReminder.medicineName,
         );
         
         print("✅ New notification scheduled successfully");

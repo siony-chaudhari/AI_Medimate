@@ -403,7 +403,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   // ✅ Turn ON → schedule notification
                   await NotificationService.scheduleNotification(
                     id: reminder.id.hashCode.abs() % 100000,
-                    title: "Time to take ${reminder.medicineName}",
+                    title: "It's time to take your ${reminder.medicineName}",
                     body: "Dosage: ${reminder.dosage}",
                     scheduledTime: DateTime(
                       DateTime.now().year,
@@ -412,6 +412,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       reminder.time.hour,
                       reminder.time.minute,
                     ),
+                    reminderId: reminder.id,
+                    medicineName: reminder.medicineName,
                   );
                   await provider.updateReminderNotification(reminder.id, true);
                 } else {
@@ -448,7 +450,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
             // 🔔 Schedule new one
             await NotificationService.scheduleNotification(
               id: updatedReminder.id.hashCode.abs() % 100000,
-              title: "Time to take ${updatedReminder.medicineName}",
+              title: "It's time to take your ${updatedReminder.medicineName}",
               body: "Dosage: ${updatedReminder.dosage}",
               scheduledTime: DateTime(
                 DateTime.now().year,
@@ -457,6 +459,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 updatedReminder.time.hour,
                 updatedReminder.time.minute,
               ),
+              reminderId: updatedReminder.id,
+              medicineName: updatedReminder.medicineName,
             );
 
             // 🔄 Refresh UI
