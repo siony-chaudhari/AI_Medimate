@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '/models/reminder_model.dart';
 import '/models/user_model.dart';
+import '/services/notification_service.dart';
+
 
 class ReminderProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -254,5 +256,56 @@ class ReminderProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+  Future<void> addReminderFromOCR(Map<String, String> med) async {
+    final medicineName = med['Medicine'] ?? 'Unknown';
+    final dosage = med['Dosage'] ?? 'Not specified';
+    final duration = med['Duration'] ?? 'Not specified';
+
+    try {
+      // Create a unique ID for this reminder
+      final String reminderId = DateTime.now().millisecondsSinceEpoch.toString();
+
+      // Create ReminderModel object
+      final reminder = ReminderModel(
+        id: reminderId,
+        medicineId: medicineName, // temporary, can be replaced later with actual medicine ID
+        medicineName: medicineName,
+        dosage: dosage,
+        time: TimeOfDay.now(), // can later be replaced by OCR extracted time
+        frequency: ReminderFrequency.daily,
+        customDays: null,
+        status: ReminderStatus.pending,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        isActive: true,
+      );
+
+      // Save to Firestore
+      await _firestore.collection('reminders').doc(reminder.id).set(reminder.toJson());
+
+      // Add to local list
+      _reminders.add(reminder);
+      _updateTodayReminders();
+
+      // 🔔 Schedule a local notification (daily reminder)
+      await NotificationService.scheduleNotification(
+        id: reminder.id.hashCode.abs() % 100000, // safe integer ID
+        title: "Time to take ${reminder.medicineName}",
+        body: "Dosage: ${reminder.dosage} | Duration: $duration",
+        scheduledTime: DateTime(
+          DateTime.now().year,
+          DateTime.now().month,
+          DateTime.now().day,
+          reminder.time.hour,
+          reminder.time.minute,
+        ),
+      );
+
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to add OCR reminder: $e';
+      notifyListeners();
+    }
   }
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '/providers/medicine_provider.dart';
-import '/models/medicine_model.dart';
-import '/utils/constants.dart';
 import 'package:intl/intl.dart';
+import '/models/medicine_model.dart';
+import '/providers/medicine_provider.dart';
+import '/utils/constants.dart';
+import 'package:ai_medimate/screens/upload_medicine_expiry_screen.dart';
+
 
 class ExpiryTrackerScreen extends StatefulWidget {
   const ExpiryTrackerScreen({super.key});
@@ -33,7 +35,7 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                 color: AppColors.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.info,
                 color: AppColors.primary,
                 size: 18,
@@ -56,12 +58,8 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Tracking overview
               _buildTrackingOverview(),
-              
               const SizedBox(height: 32),
-              
-              // Your medicines section
               _buildYourMedicinesSection(),
             ],
           ),
@@ -77,14 +75,15 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
     );
   }
 
+  // 🔹 Overview section
   Widget _buildTrackingOverview() {
     return Consumer<MedicineProvider>(
       builder: (context, medicineProvider, child) {
-        final totalMedicines = medicineProvider.getTotalMedicinesCount();
-        final expiredCount = medicineProvider.getExpiredMedicinesCount();
-        final expiringSoonCount = medicineProvider.getExpiringSoonMedicinesCount();
-        final needAttentionCount = expiredCount + expiringSoonCount;
-        
+        final total = medicineProvider.getTotalMedicinesCount();
+        final expired = medicineProvider.getExpiredMedicinesCount();
+        final soon = medicineProvider.getExpiringSoonMedicinesCount();
+        final needAttention = expired + soon;
+
         return Container(
           padding: const EdgeInsets.all(AppSizes.paddingL),
           decoration: BoxDecoration(
@@ -113,13 +112,13 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      '$totalMedicines ${AppStrings.medicinesMonitored}',
+                      '$total ${AppStrings.medicinesMonitored}',
                       style: AppTextStyles.body1.copyWith(
                         color: AppColors.textPrimary,
                       ),
                     ),
                   ),
-                  if (needAttentionCount > 0) ...[
+                  if (needAttention > 0) ...[
                     Text(
                       AppStrings.needAttention,
                       style: AppTextStyles.body2.copyWith(
@@ -138,7 +137,7 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                         borderRadius: BorderRadius.circular(AppSizes.radiusS),
                       ),
                       child: Text(
-                        needAttentionCount.toString(),
+                        needAttention.toString(),
                         style: AppTextStyles.caption.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -155,7 +154,10 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
     );
   }
 
+  // 🔹 Categories (Expired, Expiring Soon, Safe)
   Widget _buildYourMedicinesSection() {
+    final provider = Provider.of<MedicineProvider>(context, listen: false);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -167,31 +169,28 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        
-        // Expired medicines
+
         _buildMedicineCategory(
           title: 'Expired',
-          medicines: Provider.of<MedicineProvider>(context, listen: false).expiredMedicines,
+          medicines: provider.expiredMedicines,
           color: AppColors.error,
           icon: Icons.warning,
         ),
-        
+
         const SizedBox(height: 16),
-        
-        // Expiring soon medicines
+
         _buildMedicineCategory(
           title: 'Expiring Soon',
-          medicines: Provider.of<MedicineProvider>(context, listen: false).expiringSoonMedicines,
+          medicines: provider.expiringSoonMedicines,
           color: AppColors.warning,
           icon: Icons.schedule,
         ),
-        
+
         const SizedBox(height: 16),
-        
-        // Safe medicines
+
         _buildMedicineCategory(
           title: 'Safe',
-          medicines: Provider.of<MedicineProvider>(context, listen: false).safeMedicines,
+          medicines: provider.safeMedicines,
           color: AppColors.success,
           icon: Icons.check_circle,
         ),
@@ -199,16 +198,15 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
     );
   }
 
+  // 🔹 Category Card
   Widget _buildMedicineCategory({
     required String title,
     required List<MedicineModel> medicines,
     required Color color,
     required IconData icon,
   }) {
-    if (medicines.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
+    if (medicines.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -221,11 +219,7 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 16,
-              ),
+              child: Icon(icon, color: color, size: 16),
             ),
             const SizedBox(width: 8),
             Text(
@@ -256,12 +250,16 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        ...medicines.map((medicine) => _buildMedicineCard(medicine, color)),
+        ...medicines.map((m) => _buildMedicineCard(m, color)),
       ],
     );
   }
 
+  // 🔹 Individual Medicine Card
+  // 🔹 Individual Medicine Card
   Widget _buildMedicineCard(MedicineModel medicine, Color categoryColor) {
+    final medicineProvider = Provider.of<MedicineProvider>(context, listen: false);
+
     return Container(
       margin: const EdgeInsets.only(bottom: AppSizes.paddingM),
       decoration: BoxDecoration(
@@ -284,11 +282,7 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
             color: categoryColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(AppSizes.radiusM),
           ),
-          child: Icon(
-            Icons.medication,
-            color: categoryColor,
-            size: 24,
-          ),
+          child: Icon(Icons.medication, color: categoryColor, size: 24),
         ),
         title: Text(
           medicine.name,
@@ -303,9 +297,8 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
             const SizedBox(height: 4),
             Text(
               medicine.dosage,
-              style: AppTextStyles.body2.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style:
+              AppTextStyles.body2.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 4),
             Text(
@@ -317,38 +310,90 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
             ),
           ],
         ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSizes.paddingS,
-            vertical: AppSizes.paddingXS,
-          ),
-          decoration: BoxDecoration(
-            color: categoryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          ),
-          child: Text(
-            _getStatusText(medicine.status),
-            style: AppTextStyles.caption.copyWith(
-              color: categoryColor,
-              fontWeight: FontWeight.w600,
-            ),
+
+        // 🔹 Add Delete Icon at Right Corner
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+          // 🗑️ Delete Icon on Top Right
+          Positioned(
+          top: 0,
+          right: 0,
+          child: GestureDetector(
+            onTap: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Delete Medicine'),
+                  content: Text(
+                    'Are you sure you want to delete "${medicine.name}" permanently?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                await medicineProvider.deleteMedicine(medicine.id);
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${medicine.name} deleted successfully'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Icon(Icons.delete, color: Colors.redAccent, size: 22),
           ),
         ),
-        onTap: () {
-          _showMedicineDetailsDialog(context, medicine);
+          ],
+        ),  
+
+        // 👇 Tap for editing expiry
+        onTap: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  UploadMedicineExpiryScreen(medicineName: medicine.name),
+            ),
+          );
+
+          if (result != null && result is String && result.isNotEmpty) {
+            final success = await medicineProvider.updateMedicineExpiry(
+                medicine.id, result);
+
+            if (!success && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Failed to update expiry.')),
+              );
+            }
+          }
         },
       ),
     );
   }
 
+
+  // 🔹 Helper functions
   String _getExpiryText(MedicineModel medicine) {
     if (medicine.isExpired) {
       return 'Exp. ${DateFormat('MM/yyyy').format(medicine.expiryDate)}';
     } else if (medicine.isExpiringSoon) {
       return 'Expires in ${medicine.daysUntilExpiry} days';
-    } else {
-      return 'Exp. ${DateFormat('MM/yyyy').format(medicine.expiryDate)}';
     }
+    return 'Exp. ${DateFormat('MM/yyyy').format(medicine.expiryDate)}';
   }
 
   String _getStatusText(MedicineStatus status) {
@@ -362,40 +407,10 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
     }
   }
 
+  // 🔹 Placeholder
   void _showAddMedicineDialog(BuildContext context) {
-    // TODO: Implement add medicine dialog
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Add medicine feature coming soon!')),
-    );
-  }
-
-  void _showMedicineDetailsDialog(BuildContext context, MedicineModel medicine) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(medicine.name),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Dosage: ${medicine.dosage}'),
-            Text('Expiry Date: ${DateFormat('dd/MM/yyyy').format(medicine.expiryDate)}'),
-            if (medicine.manufacturer != null)
-              Text('Manufacturer: ${medicine.manufacturer}'),
-            if (medicine.batchNumber != null)
-              Text('Batch: ${medicine.batchNumber}'),
-            Text('Status: ${_getStatusText(medicine.status)}'),
-            if (medicine.isExpiringSoon)
-              Text('Days until expiry: ${medicine.daysUntilExpiry}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
     );
   }
 }

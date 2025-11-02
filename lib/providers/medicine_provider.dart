@@ -4,7 +4,7 @@ import '/models/medicine_model.dart';
 
 class MedicineProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   List<MedicineModel> _medicines = [];
   List<MedicineModel> _expiredMedicines = [];
   List<MedicineModel> _expiringSoonMedicines = [];
@@ -147,7 +147,7 @@ class MedicineProvider with ChangeNotifier {
   Future<bool> deleteMedicine(String id) async {
     try {
       await _firestore.collection('medicines').doc(id).delete();
-      
+
       _medicines.removeWhere((m) => m.id == id);
       _categorizeMedicines();
       notifyListeners();
@@ -159,10 +159,49 @@ class MedicineProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> updateMedicineExpiry(String id, String newExpiryDate) async {
+    try {
+      // Convert the "MM/YYYY" format to DateTime
+      DateTime? parsedDate;
+
+      final parts = newExpiryDate.split('/');
+      if (parts.length == 2) {
+        final month = int.tryParse(parts[0]);
+        final year = int.tryParse(parts[1]);
+        if (month != null && year != null) {
+          parsedDate = DateTime(year, month, 1);
+        }
+      }
+
+      if (parsedDate == null) {
+        _error = 'Invalid expiry date format: $newExpiryDate';
+        notifyListeners();
+        return false;
+      }
+
+      // Call your existing updateMedicine() method
+      final success = await updateMedicine(
+        id: id,
+        expiryDate: parsedDate,
+      );
+
+      if (success) {
+        _categorizeMedicines();
+        notifyListeners();
+      }
+      return success;
+    } catch (e) {
+      _error = 'Failed to update expiry: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+
   MedicineStatus _getMedicineStatus(DateTime expiryDate) {
     final now = DateTime.now();
     final difference = expiryDate.difference(now).inDays;
-    
+
     if (difference < 0) {
       return MedicineStatus.expired;
     } else if (difference <= 30) {
@@ -174,7 +213,7 @@ class MedicineProvider with ChangeNotifier {
 
   List<MedicineModel> searchMedicines(String query) {
     if (query.isEmpty) return _medicines;
-    
+
     return _medicines.where((medicine) {
       return medicine.name.toLowerCase().contains(query.toLowerCase()) ||
              medicine.description?.toLowerCase().contains(query.toLowerCase()) == true ||

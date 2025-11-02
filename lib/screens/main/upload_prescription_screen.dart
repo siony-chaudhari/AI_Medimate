@@ -2,6 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/ocr_service.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:provider/provider.dart';
+import '../../providers/medicine_provider.dart';
+import '../../models/medicine_model.dart';
+import '/providers/reminder_provider.dart';
 
 class UploadPrescriptionScreen extends StatefulWidget {
   const UploadPrescriptionScreen({super.key});
@@ -39,7 +44,6 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
       date = extracted['Date'] ?? 'Not found';
     });
   }
-
 
   @override
   void dispose() {
@@ -101,7 +105,6 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
                 ),
                 const SizedBox(height: 30),
 
-                // Image preview centered
                 _buildGlassCard(
                   title: "Preview",
                   child: Center(
@@ -128,13 +131,16 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text("🏥 Hospital: $hospitalName",
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 6),
                       Text("👨‍⚕️ Doctor: $doctorName",
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 6),
                       Text("📅 Date: $date",
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -154,19 +160,25 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("💊 Medicine: ${medicine['Medicine'] ?? 'Not found'}",
-                                  style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87)),
+                              Text(
+                                "💊 Medicine: ${medicine['Medicine'] ?? 'Not found'}",
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87),
+                              ),
                               const SizedBox(height: 4),
-                              Text("🕒 Dosage: ${medicine['Dosage'] ?? 'Not found'}",
-                                  style: const TextStyle(
-                                      fontSize: 15, color: Colors.black87)),
+                              Text(
+                                "🕒 Dosage: ${medicine['Dosage'] ?? 'Not found'}",
+                                style: const TextStyle(
+                                    fontSize: 15, color: Colors.black87),
+                              ),
                               const SizedBox(height: 4),
-                              Text("📆 Duration: ${medicine['Duration'] ?? 'Not found'}",
-                                  style: const TextStyle(
-                                      fontSize: 15, color: Colors.black87)),
+                              Text(
+                                "📆 Duration: ${medicine['Duration'] ?? 'Not found'}",
+                                style: const TextStyle(
+                                    fontSize: 15, color: Colors.black87),
+                              ),
                             ],
                           ),
                         );
@@ -261,7 +273,53 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
 
   Widget _buildSubmitButton() {
     return GestureDetector(
-      onTap: () {},
+      onTap: () async {
+        if (medicines.isEmpty) {
+          Fluttertoast.showToast(
+            msg: "No medicines found in the prescription!",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.redAccent,
+            textColor: Colors.white,
+          );
+          return;
+        }
+
+        final medicineProvider =
+        Provider.of<MedicineProvider>(context, listen: false);
+        final reminderProvider =
+        Provider.of<ReminderProvider>(context, listen: false);
+
+        for (var med in medicines) {
+          final name = med['Medicine'] ?? '';
+          final dosage = med['Dosage'] ?? '';
+          final duration = med['Duration'] ?? '';
+
+          // ✅ Add to Firestore (Medicines)
+          await medicineProvider.addMedicine(
+            name: name,
+            dosage: dosage,
+            expiryDate: DateTime.now().add(const Duration(days: 365)),
+            description: 'Duration: $duration',
+          );
+
+          // ✅ Also create reminders
+          await reminderProvider.addReminderFromOCR(med);
+        }
+
+        Fluttertoast.showToast(
+          msg: "Prescription saved and reminders created ✅",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+        );
+
+        await medicineProvider.refreshMedicines();
+        if (context.mounted) {
+          Navigator.pushReplacementNamed(context, '/reminders');
+        }
+      },
       child: Container(
         width: double.infinity,
         height: 55,
