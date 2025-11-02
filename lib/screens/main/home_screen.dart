@@ -8,6 +8,7 @@ import '/screens/ai_chat_screen.dart';
 import '/utils/constants.dart';
 import '/screens/main/upload_prescription_screen.dart';
 import '/screens/main/reminders_screen.dart';
+import '/services/notification_service.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -414,6 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
           textAlign: TextAlign.center,
         ),
       ],
+
     );
   }
 }

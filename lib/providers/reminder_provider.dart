@@ -7,7 +7,7 @@ import '/services/notification_service.dart';
 
 class ReminderProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   List<ReminderModel> _reminders = [];
   List<ReminderModel> _todayReminders = [];
   bool _isLoading = false;
@@ -134,7 +134,7 @@ class ReminderProvider with ChangeNotifier {
   Future<bool> deleteReminder(String id) async {
     try {
       await _firestore.collection('reminders').doc(id).delete();
-      
+
       _reminders.removeWhere((r) => r.id == id);
       _updateTodayReminders();
       notifyListeners();
@@ -235,7 +235,7 @@ class ReminderProvider with ChangeNotifier {
   List<ReminderModel> getRemindersForDate(DateTime date) {
     return _reminders.where((reminder) {
       if (!reminder.isActive) return false;
-      
+
       switch (reminder.frequency) {
         case ReminderFrequency.daily:
           return true;
@@ -281,6 +281,7 @@ class ReminderProvider with ChangeNotifier {
         isActive: true,
       );
 
+
       // Save to Firestore
       await _firestore.collection('reminders').doc(reminder.id).set(reminder.toJson());
 
@@ -308,4 +309,138 @@ class ReminderProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> updateReminderNotification(String id, bool enabled) async {
+    try {
+      final index = _reminders.indexWhere((r) => r.id == id);
+      if (index == -1) return;
+
+      // ✅ Update the local list
+      final updatedReminder = _reminders[index].copyWith(
+        notificationsEnabled: enabled,
+        updatedAt: DateTime.now(),
+      );
+
+      _reminders[index] = updatedReminder;
+
+      // ✅ Update Firestore
+      await _firestore
+          .collection('reminders')
+          .doc(id)
+          .update({'notificationsEnabled': enabled, 'updatedAt': DateTime.now().toIso8601String()});
+
+      // ✅ If turning ON, schedule; if OFF, cancel
+      if (enabled) {
+        await NotificationService.scheduleNotification(
+          id: updatedReminder.id.hashCode.abs() % 100000,
+          title: "Time to take ${updatedReminder.medicineName}",
+          body: "Dosage: ${updatedReminder.dosage}",
+          scheduledTime: DateTime(
+            DateTime.now().year,
+            DateTime.now().month,
+            DateTime.now().day,
+            updatedReminder.time.hour,
+            updatedReminder.time.minute,
+          ),
+        );
+      } else {
+        await NotificationService.cancelNotification(updatedReminder.id.hashCode.abs() % 100000);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to update notification setting: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateReminderDirect(ReminderModel updatedReminder) async {
+    try {
+      final index = _reminders.indexWhere((r) => r.id == updatedReminder.id);
+      if (index == -1) return;
+
+      // ✅ Cancel any old scheduled notification for this reminder
+      await NotificationService.cancelNotification(
+        updatedReminder.id.hashCode.abs() % 100000,
+      );
+
+      // ✅ Update Firestore
+      await _firestore
+          .collection('reminders')
+          .doc(updatedReminder.id)
+          .update(updatedReminder.toJson());
+
+      // ✅ Update local list
+      _reminders[index] = updatedReminder;
+      _updateTodayReminders();
+      notifyListeners();
+
+      // ✅ Schedule new notification at the updated time
+      await NotificationService.scheduleNotification(
+        id: updatedReminder.id.hashCode.abs() % 100000,
+        title: "Time to take ${updatedReminder.medicineName}",
+        body: "Dosage: ${updatedReminder.dosage}",
+        scheduledTime: DateTime(
+          DateTime.now().year,
+          DateTime.now().month,
+          DateTime.now().day,
+          updatedReminder.time.hour,
+          updatedReminder.time.minute,
+        ),
+      );
+
+    } catch (e) {
+      _error = 'Failed to update reminder directly: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateReminderTime(String id, TimeOfDay newTime) async {
+    try {
+      final index = _reminders.indexWhere((r) => r.id == id);
+      if (index == -1) return;
+
+      // ✅ Create a new instance using copyWith (since time is final)
+      final updatedReminder = _reminders[index].copyWith(
+        time: newTime,
+        updatedAt: DateTime.now(),
+      );
+
+      // ✅ Update in Firestore
+      await _firestore
+          .collection('reminders')
+          .doc(id)
+          .update(updatedReminder.toJson());
+
+      // ✅ Replace in local list
+      _reminders[index] = updatedReminder;
+      _updateTodayReminders();
+      notifyListeners();
+
+      // ✅ Cancel old and schedule new notification
+      await NotificationService.cancelNotification(
+        updatedReminder.id.hashCode.abs() % 100000,
+      );
+
+      await NotificationService.scheduleNotification(
+        id: updatedReminder.id.hashCode.abs() % 100000,
+        title: "Time to take ${updatedReminder.medicineName}",
+        body: "Dosage: ${updatedReminder.dosage}",
+        scheduledTime: DateTime(
+          DateTime.now().year,
+          DateTime.now().month,
+          DateTime.now().day,
+          newTime.hour,
+          newTime.minute,
+        ),
+      );
+    } catch (e) {
+      _error = 'Failed to update reminder time: $e';
+      notifyListeners();
+    }
+  }
+
+
+
+
 }

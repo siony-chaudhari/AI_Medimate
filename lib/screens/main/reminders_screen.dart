@@ -4,6 +4,9 @@ import '/providers/reminder_provider.dart';
 import '/models/reminder_model.dart';
 import '/utils/constants.dart';
 import 'package:intl/intl.dart';
+import '/services/notification_service.dart';
+import '/screens/add_edit_reminder_screen.dart';
+
 
 class RemindersScreen extends StatefulWidget {
   const RemindersScreen({super.key});
@@ -367,21 +370,76 @@ class _RemindersScreenState extends State<RemindersScreen> {
               ),
             const SizedBox(width: AppSizes.paddingS),
             Switch(
-              value: isCompleted,
-              onChanged: (value) {
+              value: reminder.notificationsEnabled,
+              onChanged: (value) async {
+                final provider = Provider.of<ReminderProvider>(context, listen: false);
+
                 if (value) {
-                  Provider.of<ReminderProvider>(context, listen: false).markReminderAsTaken(reminder.id);
+                  // ✅ Turn ON → schedule notification
+                  await NotificationService.scheduleNotification(
+                    id: reminder.id.hashCode.abs() % 100000,
+                    title: "Time to take ${reminder.medicineName}",
+                    body: "Dosage: ${reminder.dosage}",
+                    scheduledTime: DateTime(
+                      DateTime.now().year,
+                      DateTime.now().month,
+                      DateTime.now().day,
+                      reminder.time.hour,
+                      reminder.time.minute,
+                    ),
+                  );
+                  await provider.updateReminderNotification(reminder.id, true);
                 } else {
-                  Provider.of<ReminderProvider>(context, listen: false).markReminderAsMissed(reminder.id);
+                  // 🚫 Turn OFF → cancel notification
+                  await NotificationService.cancelNotification(
+                    reminder.id.hashCode.abs() % 100000,
+                  );
+                  await provider.updateReminderNotification(reminder.id, false);
                 }
               },
               activeColor: AppColors.success,
             ),
+
+
           ],
         ),
-        onTap: () {
-          _showReminderDetailsDialog(context, reminder);
+        onTap: () async {
+          final updatedReminder = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddEditReminderScreen(reminder: reminder),
+            ),
+          );
+
+          if (updatedReminder != null && context.mounted) {
+            final provider = Provider.of<ReminderProvider>(context, listen: false);
+
+            // ✅ Update reminder time in provider / database
+            await provider.updateReminderTime(updatedReminder.id, updatedReminder.time);
+
+            // 🧹 Cancel any old notification
+            await NotificationService.cancelNotification(reminder.id.hashCode.abs() % 100000);
+
+            // 🔔 Schedule new one
+            await NotificationService.scheduleNotification(
+              id: updatedReminder.id.hashCode.abs() % 100000,
+              title: "Time to take ${updatedReminder.medicineName}",
+              body: "Dosage: ${updatedReminder.dosage}",
+              scheduledTime: DateTime(
+                DateTime.now().year,
+                DateTime.now().month,
+                DateTime.now().day,
+                updatedReminder.time.hour,
+                updatedReminder.time.minute,
+              ),
+            );
+
+            // 🔄 Refresh UI
+            setState(() {});
+          }
         },
+
+
       ),
     );
   }

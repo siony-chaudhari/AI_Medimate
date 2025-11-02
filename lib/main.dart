@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -9,22 +10,43 @@ import '/providers/settings_provider.dart';
 import '/screens/splash_screen.dart';
 import '/utils/constants.dart';
 import '/firebase_options.dart';
+import '/services/notification_service.dart'; // 👈 Notification Service Import
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
+
+/// 🔔 Request Exact Alarm Permission (for Android 12+)
+Future<void> requestExactAlarmPermission() async {
+  if (Platform.isAndroid) {
+    final intent = AndroidIntent(
+      action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+      flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+    );
+    await intent.launch();
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // Always wrap in try-catch to avoid app crash if already initialized
+    // Initialize Firebase safely
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
   } catch (e) {
-    // Log or ignore duplicate initialization errors
     debugPrint("Firebase init error: $e");
   }
 
+  // 🔔 Initialize notifications after Firebase
+  await NotificationService.init();
+  await NotificationService.requestPermissions();
+
+  // ✅ Request exact alarm permission (for Android 12+)
+  await requestExactAlarmPermission();
+
+  // ✅ Run your app with all providers
   runApp(const MediMateAI());
 }
 

@@ -17,6 +17,7 @@ class ReminderModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isActive;
+  final bool notificationsEnabled;
 
   ReminderModel({
     required this.id,
@@ -32,6 +33,7 @@ class ReminderModel {
     required this.createdAt,
     required this.updatedAt,
     required this.isActive,
+    this.notificationsEnabled = true,
   });
 
   factory ReminderModel.fromJson(Map<String, dynamic> json) {
@@ -67,6 +69,7 @@ class ReminderModel {
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
       isActive: json['isActive'] ?? true,
+      notificationsEnabled: json['notificationsEnabled'] ?? true,
     );
   }
 
@@ -85,6 +88,7 @@ class ReminderModel {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'isActive': isActive,
+      'notificationsEnabled': notificationsEnabled,
     };
   }
 
@@ -102,6 +106,8 @@ class ReminderModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isActive,
+    bool? notificationsEnabled,
+
   }) {
     return ReminderModel(
       id: id ?? this.id,
@@ -117,6 +123,7 @@ class ReminderModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
     );
   }
 

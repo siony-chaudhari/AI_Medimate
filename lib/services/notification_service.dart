@@ -11,6 +11,9 @@ class NotificationService {
   static Future<void> init() async {
     tz.initializeTimeZones();
 
+    // ✅ Explicitly set timezone to India (important!)
+    tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
+
     // Android initialization
     const AndroidInitializationSettings androidInit =
     AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -51,39 +54,46 @@ class NotificationService {
     required String body,
     required DateTime scheduledTime,
   }) async {
-    final now = DateTime.now();
-    DateTime scheduled = scheduledTime;
+    try {
+      final now = DateTime.now();
+      DateTime scheduled = scheduledTime;
 
-    // If time already passed today, schedule for tomorrow
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
+      if (scheduled.isBefore(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
+
+      print("📅 Scheduling Notification:");
+      print("➡️ ID: $id");
+      print("➡️ Title: $title");
+      print("➡️ Time: $scheduled");
+
+      await _notifications.zonedSchedule(
+        id,
+        title,
+        body,
+        tz.TZDateTime.from(scheduled, tz.local),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'reminder_channel',
+            'Medicine Reminders',
+            channelDescription: 'Reminds you to take your medicine on time',
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+          ),
+          iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+        UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (e) {
+      print("❌ Failed to schedule notification: $e");
+      // Show guidance if user must manually allow exact alarms
     }
-
-    await _notifications.zonedSchedule(
-      id,
-      title,
-      body,
-      tz.TZDateTime.from(scheduled, tz.local),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'reminder_channel', // channel ID
-          'Medicine Reminders', // channel name
-          channelDescription: 'Reminds you to take your medicine on time',
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-        ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentSound: true,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-      UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time, // repeat daily
-    );
   }
+
 
   /// 🧹 Cancel a specific notification
   static Future<void> cancelNotification(int id) async {
@@ -97,10 +107,11 @@ class NotificationService {
 
   /// 📋 Debug helper: show all active notifications
   static Future<List<ActiveNotification>> getPendingNotifications() async {
-    final android =
-    _notifications.resolvePlatformSpecificImplementation<
+    final android = _notifications
+        .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     final active = await android?.getActiveNotifications() ?? [];
+    print("🔍 Active notifications count: ${active.length}");
     return active;
   }
 }
