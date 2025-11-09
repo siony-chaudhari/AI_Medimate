@@ -4,6 +4,7 @@ import '/providers/reminder_provider.dart';
 import '/models/reminder_model.dart';
 import '/utils/constants.dart';
 import 'package:intl/intl.dart';
+import '/screens/add_edit_reminder_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -138,7 +139,36 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildStatistics() {
     return Consumer<ReminderProvider>(
       builder: (context, reminderProvider, child) {
-        final allReminders = reminderProvider.getRemindersForDate(_selectedDate);
+        // Get all reminders for the selected date
+        final allReminders = reminderProvider.reminders.where((reminder) {
+          if (!reminder.isActive) return false;
+          
+          // Check if taken/missed on this date
+          if (reminder.takenAt != null) {
+            final takenDate = reminder.takenAt!;
+            if (takenDate.year == _selectedDate.year &&
+                takenDate.month == _selectedDate.month &&
+                takenDate.day == _selectedDate.day) {
+              return true;
+            }
+          }
+          
+          if (reminder.missedAt != null) {
+            final missedDate = reminder.missedAt!;
+            if (missedDate.year == _selectedDate.year &&
+                missedDate.month == _selectedDate.month &&
+                missedDate.day == _selectedDate.day) {
+              return true;
+            }
+          }
+          
+          // Check if created on this date
+          final reminderDate = reminder.createdAt;
+          return reminderDate.year == _selectedDate.year &&
+              reminderDate.month == _selectedDate.month &&
+              reminderDate.day == _selectedDate.day;
+        }).toList();
+        
         final takenCount = allReminders.where((r) => r.status == ReminderStatus.taken).length;
         final missedCount = allReminders.where((r) => r.status == ReminderStatus.missed).length;
         final totalCount = allReminders.length;
@@ -223,19 +253,64 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildHistoryList() {
     return Consumer<ReminderProvider>(
       builder: (context, reminderProvider, child) {
-        final allReminders = reminderProvider.getRemindersForDate(_selectedDate);
-        List<ReminderModel> filteredReminders;
+        // Get all reminders including taken and missed ones
+        final allReminders = reminderProvider.reminders
+            .where((r) => r.isActive)
+            .toList();
         
+        // Filter by date
+        final dateFilteredReminders = allReminders.where((reminder) {
+          // Check if reminder matches the selected date
+          final reminderDate = reminder.createdAt;
+          final isSameDay = reminderDate.year == _selectedDate.year &&
+              reminderDate.month == _selectedDate.month &&
+              reminderDate.day == _selectedDate.day;
+          
+          // Also check if taken/missed on this date
+          if (reminder.takenAt != null) {
+            final takenDate = reminder.takenAt!;
+            if (takenDate.year == _selectedDate.year &&
+                takenDate.month == _selectedDate.month &&
+                takenDate.day == _selectedDate.day) {
+              return true;
+            }
+          }
+          
+          if (reminder.missedAt != null) {
+            final missedDate = reminder.missedAt!;
+            if (missedDate.year == _selectedDate.year &&
+                missedDate.month == _selectedDate.month &&
+                missedDate.day == _selectedDate.day) {
+              return true;
+            }
+          }
+          
+          return isSameDay;
+        }).toList();
+        
+        // Apply status filter
+        List<ReminderModel> filteredReminders;
         switch (_selectedFilter) {
           case 'taken':
-            filteredReminders = allReminders.where((r) => r.status == ReminderStatus.taken).toList();
+            filteredReminders = dateFilteredReminders
+                .where((r) => r.status == ReminderStatus.taken)
+                .toList();
             break;
           case 'missed':
-            filteredReminders = allReminders.where((r) => r.status == ReminderStatus.missed).toList();
+            filteredReminders = dateFilteredReminders
+                .where((r) => r.status == ReminderStatus.missed)
+                .toList();
             break;
           default:
-            filteredReminders = allReminders;
+            filteredReminders = dateFilteredReminders;
         }
+        
+        // Sort by time
+        filteredReminders.sort((a, b) {
+          final aTime = a.time.hour * 60 + a.time.minute;
+          final bTime = b.time.hour * 60 + b.time.minute;
+          return aTime.compareTo(bTime);
+        });
         
         if (filteredReminders.isEmpty) {
           return Center(
@@ -281,12 +356,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildHistoryCard(ReminderModel reminder) {
     final isTaken = reminder.status == ReminderStatus.taken;
     final isMissed = reminder.status == ReminderStatus.missed;
-    
+    final isPending = reminder.status == ReminderStatus.pending;
+    final reminderProvider = Provider.of<ReminderProvider>(context, listen: false);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSizes.paddingM),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSizes.radiusL),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -295,90 +372,252 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(AppSizes.paddingM),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: _getStatusColor(reminder.status).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(AppSizes.radiusM),
-          ),
-          child: Icon(
-            _getStatusIcon(reminder.status),
-            color: _getStatusColor(reminder.status),
-            size: 24,
-          ),
-        ),
-        title: Text(
-          reminder.medicineName,
-          style: AppTextStyles.body1.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              reminder.dosage,
-              style: AppTextStyles.body2.copyWith(
-                color: AppColors.textSecondary,
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.all(16),
+            leading: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: _getStatusColor(reminder.status).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                _getStatusIcon(reminder.status),
+                color: _getStatusColor(reminder.status),
+                size: 26,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              reminder.timeString,
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textSecondary,
+
+            title: Text(
+              reminder.medicineName,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.black87,
               ),
             ),
-            if (isTaken && reminder.takenAt != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Taken at ${DateFormat('HH:mm').format(reminder.takenAt!)}',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.success,
-                  fontWeight: FontWeight.w600,
+
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text(
+                  reminder.dosage,
+                  style: const TextStyle(color: Colors.black54),
                 ),
-              ),
-            ],
-            if (isMissed && reminder.missedAt != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Missed at ${DateFormat('HH:mm').format(reminder.missedAt!)}',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.error,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(height: 2),
+                Text(
+                  'Scheduled: ${reminder.timeString}',
+                  style: const TextStyle(fontSize: 13, color: Colors.black54),
                 ),
+                // Show duration if available
+                if (reminder.durationDays != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today,
+                        size: 12,
+                        color: Colors.blue,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        reminder.durationText,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                // Show action timestamp
+                if (isTaken && reminder.takenAt != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle_outline,
+                        size: 14,
+                        color: Colors.green,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Taken at ${DateFormat('hh:mm a').format(reminder.takenAt!)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.green,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (isMissed && reminder.missedAt != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.cancel_outlined,
+                        size: 14,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Missed at ${DateFormat('hh:mm a').format(reminder.missedAt!)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete Reminder'),
+                        content: const Text(
+                          'Are you sure you want to delete this reminder?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Delete',
+                                style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      await reminderProvider.deleteReminder(reminder.id);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${reminder.medicineName} deleted'),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: const Icon(Icons.delete, color: Colors.redAccent, size: 22),
+                ),
+              ],
+            ),
+            
+            // Make card tappable to edit
+            onTap: () async {
+              final updatedReminder = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddEditReminderScreen(reminder: reminder),
+                ),
+              );
+
+              if (updatedReminder != null && context.mounted) {
+                // Reset status to pending when rescheduling
+                final resetReminder = updatedReminder.copyWith(
+                  status: ReminderStatus.pending,
+                  takenAt: null,
+                  missedAt: null,
+                  updatedAt: DateTime.now(),
+                );
+                
+                // Update in provider
+                await reminderProvider.updateReminderDirect(resetReminder);
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${reminder.medicineName} rescheduled successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+          
+          // Action buttons for pending reminders
+          if (isPending) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        await reminderProvider.markReminderAsTaken(reminder.id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${reminder.medicineName} marked as taken'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.check_circle, size: 18),
+                      label: const Text('Taken'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        await reminderProvider.markReminderAsMissed(reminder.id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${reminder.medicineName} marked as missed'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.cancel, size: 18),
+                      label: const Text('Missed'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ],
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSizes.paddingS,
-            vertical: AppSizes.paddingXS,
-          ),
-          decoration: BoxDecoration(
-            color: _getStatusColor(reminder.status).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(AppSizes.radiusS),
-          ),
-          child: Text(
-            _getStatusText(reminder.status),
-            style: AppTextStyles.caption.copyWith(
-              color: _getStatusColor(reminder.status),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        onTap: () {
-          _showHistoryDetailsDialog(context, reminder);
-        },
+        ],
       ),
     );
   }
+
+
+
 
   Color _getStatusColor(ReminderStatus status) {
     switch (status) {
@@ -390,6 +629,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return AppColors.warning;
       case ReminderStatus.pending:
         return AppColors.primary;
+      case ReminderStatus.completed:
+        return Colors.green;
     }
   }
 
@@ -403,6 +644,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return Icons.snooze;
       case ReminderStatus.pending:
         return Icons.access_time;
+      case ReminderStatus.completed:
+        return Icons.check_circle_outline;
     }
   }
 
@@ -416,6 +659,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return 'Snoozed';
       case ReminderStatus.pending:
         return 'Pending';
+      case ReminderStatus.completed:
+        return 'Completed';
     }
   }
 

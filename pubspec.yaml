@@ -41,6 +41,7 @@ dependencies:
   # ---------------------------
   flutter_local_notifications: ^17.2.1+2
   timezone: ^0.9.3
+  flutter_tts: ^4.0.2
 
   # Image Processing & OCR
   image_picker: ^1.0.4
@@ -75,6 +76,7 @@ flutter:
     - assets/animations/
     - assets/icons/
     - assets/Profile_avatar_placeholder.png
+    - assets/dataset/A_Z_medicines_dataset_of_India.csv
 #    - assets/avatar_placeholder.png
 #  fonts:
 #    - family: Poppins

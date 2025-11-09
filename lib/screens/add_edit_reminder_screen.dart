@@ -24,12 +24,30 @@ class _AddEditReminderScreenState extends State<AddEditReminderScreen> {
     _dosageController = TextEditingController(text: r?.dosage ?? '');
     if (r != null) {
       _selectedTime = r.time; // ✅ direct use, since model uses TimeOfDay
+      _durationDays = r.durationDays ?? 7; // Load existing duration
     }
   }
 
   Future<void> _pickTime() async {
     final picked = await showTimePicker(context: context, initialTime: _selectedTime);
     if (picked != null) setState(() => _selectedTime = picked);
+  }
+
+  Widget _buildDurationChip(int days) {
+    final isSelected = _durationDays == days;
+    return ChoiceChip(
+      label: Text('$days days'),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) {
+          setState(() => _durationDays = days);
+        }
+      },
+    );
+  }
+
+  DateTime _calculateEndDate() {
+    return DateTime.now().add(Duration(days: _durationDays));
   }
 
   @override
@@ -65,24 +83,79 @@ class _AddEditReminderScreenState extends State<AddEditReminderScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 20),
+              const Text(
+                'Duration',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'How many days should this medicine be taken?',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
               const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  const Text('Duration (days):'),
-                  DropdownButton<int>(
-                    value: _durationDays,
-                    items: [1, 3, 5, 7, 10, 15, 30]
-                        .map((d) => DropdownMenuItem(value: d, child: Text('$d')))
-                        .toList(),
-                    onChanged: (v) => setState(() => _durationDays = v!),
+                  _buildDurationChip(7),
+                  _buildDurationChip(14),
+                  _buildDurationChip(30),
+                  _buildDurationChip(60),
+                  _buildDurationChip(90),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Text('Custom: '),
+                  SizedBox(
+                    width: 80,
+                    child: TextFormField(
+                      initialValue: _durationDays.toString(),
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        suffixText: 'days',
+                        isDense: true,
+                      ),
+                      onChanged: (v) {
+                        final days = int.tryParse(v);
+                        if (days != null && days > 0) {
+                          setState(() => _durationDays = days);
+                        }
+                      },
+                    ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 20, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Treatment will end on ${_calculateEndDate().toString().split(' ')[0]}',
+                        style: const TextStyle(fontSize: 12, color: Colors.blue),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
+                    final now = DateTime.now();
+                    final startDate = widget.reminder?.startDate ?? now;
+                    final endDate = startDate.add(Duration(days: _durationDays));
+                    
                     final newReminder = ReminderModel(
                       id: widget.reminder?.id ??
                           DateTime.now().millisecondsSinceEpoch.toString(),
@@ -101,6 +174,11 @@ class _AddEditReminderScreenState extends State<AddEditReminderScreen> {
                       createdAt:
                       widget.reminder?.createdAt ?? DateTime.now(),
                       updatedAt: DateTime.now(),
+                      // Duration fields
+                      durationDays: _durationDays,
+                      startDate: startDate,
+                      endDate: endDate,
+                      isCompleted: false,
                     );
 
                     Navigator.pop(context, newReminder);

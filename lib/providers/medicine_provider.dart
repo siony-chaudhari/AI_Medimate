@@ -216,8 +216,8 @@ class MedicineProvider with ChangeNotifier {
 
     return _medicines.where((medicine) {
       return medicine.name.toLowerCase().contains(query.toLowerCase()) ||
-             medicine.description?.toLowerCase().contains(query.toLowerCase()) == true ||
-             medicine.manufacturer?.toLowerCase().contains(query.toLowerCase()) == true;
+          medicine.description?.toLowerCase().contains(query.toLowerCase()) == true ||
+          medicine.manufacturer?.toLowerCase().contains(query.toLowerCase()) == true;
     }).toList();
   }
 
@@ -252,4 +252,35 @@ class MedicineProvider with ChangeNotifier {
   Future<void> refreshMedicines() async {
     await _loadMedicines();
   }
+
+  bool medicineExists(String name) {
+    return _medicines.any(
+          (medicine) => medicine.name.toLowerCase() == name.toLowerCase(),
+    );
+  }
+
+  Future<void> clearAllMedicines() async {
+    try {
+      // Delete all medicine documents from Firestore
+      final collection = _firestore.collection('medicines');
+      final snapshots = await collection.get();
+
+      for (var doc in snapshots.docs) {
+        await doc.reference.delete();
+      }
+
+      // Clear local lists
+      _medicines.clear();
+      _expiredMedicines.clear();
+      _expiringSoonMedicines.clear();
+      _safeMedicines.clear();
+
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to clear medicines: $e';
+      notifyListeners();
+    }
+  }
+
+
 }

@@ -11,6 +11,8 @@ import '/screens/main/reminders_screen.dart';
 import '/services/notification_service.dart';
 
 
+
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -50,7 +52,21 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      // 👇 Add this floating button
+    //   floatingActionButton: FloatingActionButton.extended(
+    //     onPressed: () {
+    //       Navigator.push(
+    //         context,
+    //         MaterialPageRoute(builder: (context) => const DebugNotificationScreen()),
+    //       );
+    //     },
+    //     icon: const Icon(Icons.notifications_active),
+    //     label: const Text('Debug'),
+    //     backgroundColor: AppColors.primary,
+    //   ),
+    //   floatingActionButtonLocation: FloatingActionButtonLocation.endFloat, // bottom-right corner
     );
+
   }
 
   Widget _buildHeader() {
@@ -139,6 +155,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
+
+
             _buildQuickAccessCard(
               title: AppStrings.askAI,
               icon: Icons.chat,
@@ -209,6 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
 
   Widget _buildNextMedicineSection() {
     return Consumer<ReminderProvider>(
@@ -377,6 +396,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+
+
+
+
   Widget _buildSummaryItem({
     required String title,
     required String value,
@@ -418,4 +441,5 @@ class _HomeScreenState extends State<HomeScreen> {
 
     );
   }
+
 }

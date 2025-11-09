@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '/models/reminder_model.dart';
 import '/models/user_model.dart';
 import '/services/notification_service.dart';
+import '/services/duration_service.dart';
+import 'dart:async';
 
 
 class ReminderProvider with ChangeNotifier {
@@ -18,9 +20,31 @@ class ReminderProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  Timer? _durationCheckTimer;
+
   ReminderProvider() {
     _loadReminders();
     _listenToReminderChanges();
+    _startDurationCheck();
+  }
+
+  @override
+  void dispose() {
+    _durationCheckTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Start periodic check for expired reminders
+  void _startDurationCheck() {
+    // Check immediately
+    DurationService.checkExpiredReminders();
+    
+    // Then check every hour
+    _durationCheckTimer = Timer.periodic(const Duration(hours: 1), (timer) {
+      DurationService.checkExpiredReminders();
+    });
+    
+    debugPrint("✅ Duration check timer started");
   }
 
   /// Listen to real-time changes in reminders collection
@@ -30,12 +54,57 @@ class ReminderProvider with ChangeNotifier {
         .where('isActive', isEqualTo: true)
         .snapshots()
         .listen((snapshot) {
-      _reminders = snapshot.docs
-          .map((doc) => ReminderModel.fromJson({...doc.data(), 'id': doc.id}))
-          .toList();
-      _updateTodayReminders();
-      notifyListeners();
+      debugPrint("🔄 Firestore snapshot received: ${snapshot.docs.length} documents");
+      
+      final newReminders = <ReminderModel>[];
+      for (final doc in snapshot.docs) {
+        try {
+          final data = {...doc.data(), 'id': doc.id};
+          debugPrint("📄 Processing reminder: ${doc.id}");
+          debugPrint("   Status: ${data['status']}");
+          debugPrint("   Medicine: ${data['medicineName']}");
+          
+          final reminder = ReminderModel.fromJson(data);
+          newReminders.add(reminder);
+        } catch (e) {
+          debugPrint("❌ Error parsing reminder ${doc.id}: $e");
+        }
+      }
+      
+      // Only update if the list actually changed to prevent unnecessary UI updates
+      if (newReminders.length != _reminders.length || 
+          !_listsAreEqual(newReminders, _reminders)) {
+        debugPrint("📊 Reminders updated: ${_reminders.length} -> ${newReminders.length}");
+        _reminders = newReminders;
+        _updateTodayReminders();
+        notifyListeners();
+        debugPrint("✅ UI notified of changes");
+      } else {
+        debugPrint("ℹ️ No changes detected, skipping update");
+      }
+    }, onError: (error) {
+      debugPrint("❌ Error in Firestore listener: $error");
     });
+  }
+
+  /// Check if two reminder lists are equal (by ID and status)
+  bool _listsAreEqual(List<ReminderModel> list1, List<ReminderModel> list2) {
+    if (list1.length != list2.length) return false;
+    
+    // Compare each reminder's ID, status, takenAt, and missedAt
+    for (int i = 0; i < list1.length; i++) {
+      final r1 = list1[i];
+      final r2 = list2.firstWhere((r) => r.id == r1.id, orElse: () => r1);
+      
+      if (r1.id != r2.id || 
+          r1.status != r2.status ||
+          r1.takenAt != r2.takenAt ||
+          r1.missedAt != r2.missedAt) {
+        return false;
+      }
+    }
+    
+    return true;
   }
 
   Future<void> _loadReminders() async {
@@ -279,7 +348,7 @@ class ReminderProvider with ChangeNotifier {
     try {
       final firestore = FirebaseFirestore.instance;
       final now = DateTime.now();
-      
+
       switch (action) {
         case 'taken':
           await firestore.collection('reminders').doc(reminderId).update({
@@ -288,7 +357,7 @@ class ReminderProvider with ChangeNotifier {
             'updatedAt': now.toIso8601String(),
           });
           break;
-          
+
         case 'missed':
           await firestore.collection('reminders').doc(reminderId).update({
             'status': 'missed',
@@ -333,21 +402,23 @@ class ReminderProvider with ChangeNotifier {
       _reminders.add(reminder);
       _updateTodayReminders();
 
-      // 🔔 Schedule a local notification (daily reminder)
-      await NotificationService.scheduleNotification(
-        id: reminder.id.hashCode.abs() % 100000, // safe integer ID
-        title: "It's time to take your ${reminder.medicineName}",
-        body: "Dosage: ${reminder.dosage}",
-        scheduledTime: DateTime(
-          DateTime.now().year,
-          DateTime.now().month,
-          DateTime.now().day,
-          reminder.time.hour,
-          reminder.time.minute,
-        ),
-        reminderId: reminder.id,
-        medicineName: reminder.medicineName,
-      );
+      // 🔔 Schedule a local notification only if notifications are enabled (default: true)
+      if (reminder.notificationsEnabled) {
+        await NotificationService.scheduleNotification(
+          id: reminder.id.hashCode.abs() % 100000, // safe integer ID
+          title: "It's time to take your ${reminder.medicineName}",
+          body: "Dosage: ${reminder.dosage}",
+          scheduledTime: DateTime(
+            DateTime.now().year,
+            DateTime.now().month,
+            DateTime.now().day,
+            reminder.time.hour,
+            reminder.time.minute,
+          ),
+          reminderId: reminder.id,
+          medicineName: reminder.medicineName,
+        );
+      }
 
       notifyListeners();
     } catch (e) {
@@ -423,21 +494,23 @@ class ReminderProvider with ChangeNotifier {
       _updateTodayReminders();
       notifyListeners();
 
-      // ✅ Schedule new notification at the updated time
-      await NotificationService.scheduleNotification(
-        id: updatedReminder.id.hashCode.abs() % 100000,
-        title: "It's time to take your ${updatedReminder.medicineName}",
-        body: "Dosage: ${updatedReminder.dosage}",
-        scheduledTime: DateTime(
-          DateTime.now().year,
-          DateTime.now().month,
-          DateTime.now().day,
-          updatedReminder.time.hour,
-          updatedReminder.time.minute,
-        ),
-        reminderId: updatedReminder.id,
-        medicineName: updatedReminder.medicineName,
-      );
+      // ✅ Schedule new notification at the updated time only if notifications are enabled
+      if (updatedReminder.notificationsEnabled) {
+        await NotificationService.scheduleNotification(
+          id: updatedReminder.id.hashCode.abs() % 100000,
+          title: "It's time to take your ${updatedReminder.medicineName}",
+          body: "Dosage: ${updatedReminder.dosage}",
+          scheduledTime: DateTime(
+            DateTime.now().year,
+            DateTime.now().month,
+            DateTime.now().day,
+            updatedReminder.time.hour,
+            updatedReminder.time.minute,
+          ),
+          reminderId: updatedReminder.id,
+          medicineName: updatedReminder.medicineName,
+        );
+      }
 
     } catch (e) {
       _error = 'Failed to update reminder directly: $e';
@@ -501,7 +574,7 @@ class ReminderProvider with ChangeNotifier {
           reminderId: updatedReminder.id,
           medicineName: updatedReminder.medicineName,
         );
-        
+
         print("✅ New notification scheduled successfully");
       } else {
         print("🔕 Notifications disabled for this reminder");
@@ -513,6 +586,7 @@ class ReminderProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
 
 
 

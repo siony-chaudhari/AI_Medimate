@@ -11,6 +11,7 @@ import '/screens/splash_screen.dart';
 import '/utils/constants.dart';
 import '/firebase_options.dart';
 import '/services/notification_service.dart'; // 👈 Notification Service Import
+import '/services/ml_rescheduling_service.dart'; // 👈 ML Service Import
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 
@@ -21,9 +22,9 @@ Future<void> requestExactAlarmPermission() async {
       // First check if we can schedule exact alarms
       final android = NotificationService.getAndroidImplementation();
       final canScheduleExactAlarms = await android?.canScheduleExactNotifications() ?? false;
-      
+
       print("📱 Can schedule exact alarms: $canScheduleExactAlarms");
-      
+
       if (!canScheduleExactAlarms) {
         print("⚠️ Exact alarm permission not granted, requesting...");
         final intent = AndroidIntent(
@@ -60,6 +61,15 @@ Future<void> main() async {
 
   // ✅ Request exact alarm permission (for Android 12+)
   await requestExactAlarmPermission();
+  
+  // 🤖 Initialize ML Rescheduling service
+  try {
+    final mlService = MLReschedulingService();
+    await mlService.initialize();
+    print("✅ ML Rescheduling service initialized");
+  } catch (e) {
+    print("❌ Error initializing ML service: $e");
+  }
 
   // ✅ Run your app with all providers
   runApp(const MediMateAI());

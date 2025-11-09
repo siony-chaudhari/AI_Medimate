@@ -65,13 +65,16 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddMedicineDialog(context);
-        },
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+
+//ADD new button
+
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () {
+      //     _showAddMedicineDialog(context);
+      //   },
+      //   backgroundColor: AppColors.primary,
+      //   child: const Icon(Icons.add, color: Colors.white),
+      // ),
     );
   }
 
@@ -342,15 +345,24 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
               );
 
               if (confirm == true) {
-                await medicineProvider.deleteMedicine(medicine.id);
+                final success = await medicineProvider.deleteMedicine(medicine.id);
 
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${medicine.name} deleted successfully'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${medicine.name} and its reminders deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to delete ${medicine.name}'),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                  }
                 }
               }
             },

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/providers/reminder_provider.dart';
+import '/providers/medicine_provider.dart';
 import '/models/reminder_model.dart';
 import '/utils/constants.dart';
 import 'package:intl/intl.dart';
 import '/services/notification_service.dart';
 import '/screens/add_edit_reminder_screen.dart';
+import '/screens/add_medicine_screen.dart';
 
 
 class RemindersScreen extends StatefulWidget {
@@ -45,25 +47,25 @@ class _RemindersScreenState extends State<RemindersScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Debug button
-          FloatingActionButton.small(
-            onPressed: () async {
-              // Test notification immediately
-              await NotificationService.showTestNotification();
-              
-              // Show pending notifications
-              await NotificationService.getAllPendingNotifications();
-              
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Test notification sent! Check logs for details.')),
-                );
-              }
-            },
-            backgroundColor: Colors.orange,
-            child: const Icon(Icons.bug_report, color: Colors.white),
-          ),
-          const SizedBox(height: 8),
-          // Add reminder button
+          // FloatingActionButton.small(
+          //   onPressed: () async {
+          //     // Test notification immediately
+          //     await NotificationService.showTestNotification();
+          //
+          //     // Show pending notifications
+          //     await NotificationService.getAllPendingNotifications();
+          //
+          //     if (context.mounted) {
+          //       ScaffoldMessenger.of(context).showSnackBar(
+          //         const SnackBar(content: Text('Test notification sent! Check logs for details.')),
+          //       );
+          //     }
+          //   },
+          //   backgroundColor: Colors.orange,
+          //   child: const Icon(Icons.bug_report, color: Colors.white),
+          // ),
+          // const SizedBox(height: 8),
+          // // Add reminder button
           FloatingActionButton(
             onPressed: () {
               _showAddReminderDialog(context);
@@ -189,10 +191,21 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
 
   Widget _buildTodayProgress() {
-    return Consumer<ReminderProvider>(
-      builder: (context, reminderProvider, child) {
-        final totalReminders = reminderProvider.todayReminders.length;
-        final completedReminders = reminderProvider.getTodayProgress();
+    return Consumer2<ReminderProvider, MedicineProvider>(
+      builder: (context, reminderProvider, medicineProvider, child) {
+        // Get existing medicine names
+        final existingMedicineNames = medicineProvider.medicines.map((m) => m.name).toList();
+        
+        // Filter today's reminders to only include those with existing medicines
+        final allTodayReminders = reminderProvider.todayReminders;
+        final validTodayReminders = allTodayReminders.where((reminder) {
+          return existingMedicineNames.any(
+            (name) => name.toLowerCase().trim() == reminder.medicineName.toLowerCase().trim(),
+          );
+        }).toList();
+        
+        final totalReminders = validTodayReminders.length;
+        final completedReminders = validTodayReminders.where((r) => r.status == ReminderStatus.taken).length;
         final progress = totalReminders > 0 ? completedReminders / totalReminders : 0.0;
         
         return Container(
@@ -269,11 +282,20 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 
   Widget _buildRemindersList() {
-    return Consumer<ReminderProvider>(
-      builder: (context, reminderProvider, child) {
-        final reminders = reminderProvider.getRemindersForDate(_selectedDate);
+    return Consumer2<ReminderProvider, MedicineProvider>(
+      builder: (context, reminderProvider, medicineProvider, child) {
+        // Get existing medicine names
+        final existingMedicineNames = medicineProvider.medicines.map((m) => m.name).toList();
         
-        if (reminders.isEmpty) {
+        // Filter reminders to only show those with existing medicines
+        final allReminders = reminderProvider.getRemindersForDate(_selectedDate);
+        final validReminders = allReminders.where((reminder) {
+          return existingMedicineNames.any(
+            (name) => name.toLowerCase().trim() == reminder.medicineName.toLowerCase().trim(),
+          );
+        }).toList();
+        
+        if (validReminders.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -292,7 +314,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Tap the + button to add a reminder',
+                  'Tap the + button to add a medicine and reminder',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textSecondary.withOpacity(0.7),
                   ),
@@ -304,9 +326,9 @@ class _RemindersScreenState extends State<RemindersScreen> {
         
         return ListView.builder(
           padding: const EdgeInsets.all(AppSizes.paddingL),
-          itemCount: reminders.length,
+          itemCount: validReminders.length,
           itemBuilder: (context, index) {
-            final reminder = reminders[index];
+            final reminder = validReminders[index];
             return _buildReminderCard(reminder);
           },
         );
@@ -315,9 +337,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 
   Widget _buildReminderCard(ReminderModel reminder) {
-    final isOverdue = reminder.isOverdue;
-    final isCompleted = reminder.status == ReminderStatus.taken;
-    
     return Container(
       margin: const EdgeInsets.only(bottom: AppSizes.paddingM),
       decoration: BoxDecoration(
@@ -337,12 +356,12 @@ class _RemindersScreenState extends State<RemindersScreen> {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: _getReminderColor(reminder).withOpacity(0.1),
+            color: AppColors.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(AppSizes.radiusM),
           ),
           child: Icon(
-            _getReminderIcon(reminder),
-            color: _getReminderColor(reminder),
+            Icons.medication,
+            color: AppColors.primary,
             size: 24,
           ),
         ),
@@ -370,65 +389,73 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 color: AppColors.textSecondary,
               ),
             ),
+            // Show duration progress if available
+            if (reminder.durationDays != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today,
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    reminder.durationText,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              LinearProgressIndicator(
+                value: reminder.progressPercentage,
+                backgroundColor: AppColors.textSecondary.withOpacity(0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                minHeight: 4,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ],
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isOverdue && !isCompleted)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingS,
-                  vertical: AppSizes.paddingXS,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                ),
-                child: Text(
-                  'Overdue',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
-                    fontWeight: FontWeight.w600,
+        trailing: IconButton(
+          icon: const Icon(Icons.delete, color: Colors.redAccent, size: 22),
+          onPressed: () async {
+            final provider = Provider.of<ReminderProvider>(context, listen: false);
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Delete Reminder'),
+                content: Text('Are you sure you want to delete "${reminder.medicineName}" reminder?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel'),
                   ),
-                ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                  ),
+                ],
               ),
-            const SizedBox(width: AppSizes.paddingS),
-            Switch(
-              value: reminder.notificationsEnabled,
-              onChanged: (value) async {
-                final provider = Provider.of<ReminderProvider>(context, listen: false);
+            );
 
-                if (value) {
-                  // ✅ Turn ON → schedule notification
-                  await NotificationService.scheduleNotification(
-                    id: reminder.id.hashCode.abs() % 100000,
-                    title: "It's time to take your ${reminder.medicineName}",
-                    body: "Dosage: ${reminder.dosage}",
-                    scheduledTime: DateTime(
-                      DateTime.now().year,
-                      DateTime.now().month,
-                      DateTime.now().day,
-                      reminder.time.hour,
-                      reminder.time.minute,
-                    ),
-                    reminderId: reminder.id,
-                    medicineName: reminder.medicineName,
-                  );
-                  await provider.updateReminderNotification(reminder.id, true);
-                } else {
-                  // 🚫 Turn OFF → cancel notification
-                  await NotificationService.cancelNotification(
-                    reminder.id.hashCode.abs() % 100000,
-                  );
-                  await provider.updateReminderNotification(reminder.id, false);
-                }
-              },
-              activeColor: AppColors.success,
-            ),
-
-
-          ],
+            if (confirm == true) {
+              await provider.deleteReminder(reminder.id);
+              await NotificationService.cancelNotification(reminder.id.hashCode.abs() % 100000);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${reminder.medicineName} deleted successfully'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              }
+              setState(() {});
+            }
+          },
         ),
         onTap: () async {
           final updatedReminder = await Navigator.push(
@@ -440,14 +467,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
           if (updatedReminder != null && context.mounted) {
             final provider = Provider.of<ReminderProvider>(context, listen: false);
-
-            // ✅ Update reminder time in provider / database
             await provider.updateReminderTime(updatedReminder.id, updatedReminder.time);
 
-            // 🧹 Cancel any old notification
             await NotificationService.cancelNotification(reminder.id.hashCode.abs() % 100000);
 
-            // 🔔 Schedule new one
             await NotificationService.scheduleNotification(
               id: updatedReminder.id.hashCode.abs() % 100000,
               title: "It's time to take your ${updatedReminder.medicineName}",
@@ -463,40 +486,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
               medicineName: updatedReminder.medicineName,
             );
 
-            // 🔄 Refresh UI
             setState(() {});
           }
         },
-
-
       ),
     );
-  }
-
-  Color _getReminderColor(ReminderModel reminder) {
-    switch (reminder.status) {
-      case ReminderStatus.taken:
-        return AppColors.success;
-      case ReminderStatus.missed:
-        return AppColors.error;
-      case ReminderStatus.snoozed:
-        return AppColors.warning;
-      case ReminderStatus.pending:
-        return reminder.isOverdue ? AppColors.error : AppColors.primary;
-    }
-  }
-
-  IconData _getReminderIcon(ReminderModel reminder) {
-    switch (reminder.status) {
-      case ReminderStatus.taken:
-        return Icons.check_circle;
-      case ReminderStatus.missed:
-        return Icons.cancel;
-      case ReminderStatus.snoozed:
-        return Icons.snooze;
-      case ReminderStatus.pending:
-        return reminder.isOverdue ? Icons.warning : Icons.access_time;
-    }
   }
 
   bool _isSameDay(DateTime date1, DateTime date2) {
@@ -505,11 +499,18 @@ class _RemindersScreenState extends State<RemindersScreen> {
            date1.day == date2.day;
   }
 
-  void _showAddReminderDialog(BuildContext context) {
-    // TODO: Implement add reminder dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add reminder feature coming soon!')),
+  void _showAddReminderDialog(BuildContext context) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddMedicineScreen(),
+      ),
     );
+
+    if (result == true && mounted) {
+      // Refresh the reminders list
+      setState(() {});
+    }
   }
 
   void _showReminderDetailsDialog(BuildContext context, ReminderModel reminder) {
@@ -523,7 +524,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
           children: [
             Text('Dosage: ${reminder.dosage}'),
             Text('Time: ${reminder.timeString}'),
-            Text('Frequency: ${reminder.frequency.toString().split('.').last}'),
+            // Text('Frequency: ${reminder.frequency.toString().split('.').last}'),
             Text('Status: ${reminder.status.toString().split('.').last}'),
           ],
         ),

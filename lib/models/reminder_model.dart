@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum ReminderStatus { pending, taken, missed, snoozed }
+enum ReminderStatus { pending, taken, missed, snoozed, completed }
 enum ReminderFrequency { daily, weekly, custom }
 
 class ReminderModel {
@@ -18,6 +18,12 @@ class ReminderModel {
   final DateTime updatedAt;
   final bool isActive;
   final bool notificationsEnabled;
+  
+  // Duration fields
+  final int? durationDays;        // Number of days (e.g., 7, 14, 30)
+  final DateTime? startDate;      // When treatment started
+  final DateTime? endDate;        // When treatment ends
+  final bool isCompleted;         // True when duration is over
 
   ReminderModel({
     required this.id,
@@ -34,6 +40,10 @@ class ReminderModel {
     required this.updatedAt,
     required this.isActive,
     this.notificationsEnabled = true,
+    this.durationDays,
+    this.startDate,
+    this.endDate,
+    this.isCompleted = false,
   });
 
   factory ReminderModel.fromJson(Map<String, dynamic> json) {
@@ -70,6 +80,14 @@ class ReminderModel {
       updatedAt: DateTime.parse(json['updatedAt']),
       isActive: json['isActive'] ?? true,
       notificationsEnabled: json['notificationsEnabled'] ?? true,
+      durationDays: json['durationDays'] as int?,
+      startDate: json['startDate'] != null 
+          ? DateTime.parse(json['startDate']) 
+          : null,
+      endDate: json['endDate'] != null 
+          ? DateTime.parse(json['endDate']) 
+          : null,
+      isCompleted: json['isCompleted'] ?? false,
     );
   }
 
@@ -89,6 +107,10 @@ class ReminderModel {
       'updatedAt': updatedAt.toIso8601String(),
       'isActive': isActive,
       'notificationsEnabled': notificationsEnabled,
+      'durationDays': durationDays,
+      'startDate': startDate?.toIso8601String(),
+      'endDate': endDate?.toIso8601String(),
+      'isCompleted': isCompleted,
     };
   }
 
@@ -107,7 +129,10 @@ class ReminderModel {
     DateTime? updatedAt,
     bool? isActive,
     bool? notificationsEnabled,
-
+    int? durationDays,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool? isCompleted,
   }) {
     return ReminderModel(
       id: id ?? this.id,
@@ -124,6 +149,10 @@ class ReminderModel {
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      durationDays: durationDays ?? this.durationDays,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      isCompleted: isCompleted ?? this.isCompleted,
     );
   }
 
@@ -158,4 +187,37 @@ class ReminderModel {
 
   String get timeString => 
       '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  
+  // Check if duration has expired
+  bool get isDurationExpired {
+    if (endDate == null) return false;
+    return DateTime.now().isAfter(endDate!);
+  }
+  
+  // Get remaining days
+  int get remainingDays {
+    if (endDate == null) return -1;
+    final now = DateTime.now();
+    if (now.isAfter(endDate!)) return 0;
+    return endDate!.difference(now).inDays + 1;
+  }
+  
+  // Get progress percentage
+  double get progressPercentage {
+    if (durationDays == null || startDate == null || endDate == null) return 0.0;
+    final now = DateTime.now();
+    if (now.isBefore(startDate!)) return 0.0;
+    if (now.isAfter(endDate!)) return 1.0;
+    
+    final totalDuration = endDate!.difference(startDate!).inDays;
+    final elapsed = now.difference(startDate!).inDays;
+    return elapsed / totalDuration;
+  }
+  
+  // Get duration display text
+  String get durationText {
+    if (durationDays == null) return 'Ongoing';
+    if (isDurationExpired) return 'Completed';
+    return 'Day ${durationDays! - remainingDays + 1} of $durationDays';
+  }
 }

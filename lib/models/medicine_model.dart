@@ -15,6 +15,7 @@ class MedicineModel {
   final MedicineStatus status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? intakeStatus;
 
   MedicineModel({
     required this.id,
@@ -29,6 +30,7 @@ class MedicineModel {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.intakeStatus,
   });
 
   factory MedicineModel.fromJson(Map<String, dynamic> json) {
@@ -48,6 +50,7 @@ class MedicineModel {
       status: calculateStatus(expiry),
       createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt'] ?? '') ?? DateTime.now(),
+      intakeStatus: json['intakeStatus'],
     );
   }
 
@@ -64,6 +67,7 @@ class MedicineModel {
     'status': status.toString().split('.').last,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
+    'intakeStatus': intakeStatus,
   };
 
   MedicineModel copyWith({
@@ -79,6 +83,7 @@ class MedicineModel {
     MedicineStatus? status,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? intakeStatus,
   }) {
     final newExpiry = expiryDate ?? this.expiryDate;
     return MedicineModel(
@@ -94,6 +99,7 @@ class MedicineModel {
       status: status ?? calculateStatus(newExpiry),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      intakeStatus: intakeStatus ?? this.intakeStatus,
     );
   }
 

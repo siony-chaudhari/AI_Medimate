@@ -19,7 +19,7 @@ class UploadPrescriptionScreen extends StatefulWidget {
 class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
   File? _pickedImage;
   List<Map<String, String>> medicines = [];
-  String doctorName = '';
+
   String hospitalName = '';
   String date = '';
   final OCRService _ocrService = OCRService();
@@ -39,7 +39,7 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
     final extracted = await _ocrService.extractMedicinesFromImage(image);
     setState(() {
       medicines = List<Map<String, String>>.from(extracted['Medicines']);
-      doctorName = extracted['Doctor'] ?? 'Not found';
+
       hospitalName = extracted['Hospital'] ?? 'Not found';
       date = extracted['Date'] ?? 'Not found';
     });
@@ -54,144 +54,136 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F5E9),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFB3E5FC), Color(0xFFC8E6C9)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                const Text(
-                  "Upload Prescription",
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+      backgroundColor: Colors.white, // ✅ changed to white background
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 100), // space for bottom button
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              const Text(
+                "Upload Prescription",
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                "Upload your prescription or take a photo to order medicines easily.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15, color: Colors.black54),
+              ),
+              const SizedBox(height: 30),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildGlassButton(
+                    label: "Upload",
+                    icon: Icons.cloud_upload_rounded,
+                    color: Colors.blueAccent,
+                    onTap: () => _pickImage(ImageSource.gallery),
+                  ),
+                  const SizedBox(width: 20),
+                  _buildGlassButton(
+                    label: "Take Photo",
+                    icon: Icons.camera_alt_rounded,
+                    color: Colors.green.shade700,
+                    onTap: () => _pickImage(ImageSource.camera),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
+
+              _buildGlassCard(
+                title: "Preview",
+                child: Center(
+                  child: _pickedImage == null
+                      ? const Text(
+                    "No image selected",
+                    style: TextStyle(color: Colors.black54),
+                  )
+                      : ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: Image.file(
+                      _pickedImage!,
+                      height: 220,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  "Upload your prescription or take a photo to order medicines easily.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 15, color: Colors.black54),
-                ),
-                const SizedBox(height: 30),
+              ),
+              const SizedBox(height: 25),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              _buildGlassCard(
+                title: "Prescription Information",
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildGlassButton(
-                      label: "Upload",
-                      icon: Icons.cloud_upload_rounded,
-                      color: Colors.blueAccent,
-                      onTap: () => _pickImage(ImageSource.gallery),
-                    ),
-                    const SizedBox(width: 20),
-                    _buildGlassButton(
-                      label: "Take Photo",
-                      icon: Icons.camera_alt_rounded,
-                      color: Colors.green.shade700,
-                      onTap: () => _pickImage(ImageSource.camera),
-                    ),
+                    Text("🏥 Hospital: $hospitalName",
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+
+                    Text("📅 Date: $date",
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
                   ],
                 ),
-                const SizedBox(height: 30),
+              ),
 
+              if (medicines.isNotEmpty)
                 _buildGlassCard(
-                  title: "Preview",
-                  child: Center(
-                    child: _pickedImage == null
-                        ? const Text(
-                      "No image selected",
-                      style: TextStyle(color: Colors.black54),
-                    )
-                        : ClipRRect(
-                      borderRadius: BorderRadius.circular(15),
-                      child: Image.file(
-                        _pickedImage!,
-                        height: 220,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 25),
-
-                _buildGlassCard(
-                  title: "Prescription Information",
+                  title: "Extracted Medicines",
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("🏥 Hospital: $hospitalName",
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 6),
-                      Text("👨‍⚕️ Doctor: $doctorName",
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 6),
-                      Text("📅 Date: $date",
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600)),
-                    ],
+                    children: medicines.map((medicine) {
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "💊 Medicine: ${medicine['Medicine'] ?? 'Not found'}",
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "🕒 Dosage: ${medicine['Dosage'] ?? 'Not found'}",
+                              style: const TextStyle(
+                                  fontSize: 15, color: Colors.black87),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "📆 Duration: ${medicine['Duration'] ?? 'Not found'}",
+                              style: const TextStyle(
+                                  fontSize: 15, color: Colors.black87),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
-
-                if (medicines.isNotEmpty)
-                  _buildGlassCard(
-                    title: "Extracted Medicines",
-                    child: Column(
-                      children: medicines.map((medicine) {
-                        return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "💊 Medicine: ${medicine['Medicine'] ?? 'Not found'}",
-                                style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "🕒 Dosage: ${medicine['Dosage'] ?? 'Not found'}",
-                                style: const TextStyle(
-                                    fontSize: 15, color: Colors.black87),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "📆 Duration: ${medicine['Duration'] ?? 'Not found'}",
-                                style: const TextStyle(
-                                    fontSize: 15, color: Colors.black87),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-
-                const SizedBox(height: 40),
-                _buildSubmitButton(),
-              ],
-            ),
+            ],
           ),
         ),
+      ),
+
+      // ✅ Fixed Submit button to the bottom
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        color: Colors.white,
+        child: _buildSubmitButton(),
       ),
     );
   }
@@ -243,6 +235,7 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
   Widget _buildGlassCard({required String title, required Widget child}) {
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.4),
@@ -289,13 +282,12 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
         Provider.of<MedicineProvider>(context, listen: false);
         final reminderProvider =
         Provider.of<ReminderProvider>(context, listen: false);
-
+        await medicineProvider.clearAllMedicines();
         for (var med in medicines) {
           final name = med['Medicine'] ?? '';
           final dosage = med['Dosage'] ?? '';
           final duration = med['Duration'] ?? '';
 
-          // ✅ Add to Firestore (Medicines)
           await medicineProvider.addMedicine(
             name: name,
             dosage: dosage,
@@ -303,7 +295,6 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
             description: 'Duration: $duration',
           );
 
-          // ✅ Also create reminders
           await reminderProvider.addReminderFromOCR(med);
         }
 
@@ -315,7 +306,6 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
           textColor: Colors.white,
         );
 
-        await medicineProvider.refreshMedicines();
         if (context.mounted) {
           Navigator.pushReplacementNamed(context, '/reminders');
         }
@@ -325,14 +315,14 @@ class _UploadPrescriptionScreenState extends State<UploadPrescriptionScreen> {
         height: 55,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF42A5F5), Color(0xFF26A69A)],
+            colors: [Colors.blue, Colors.blue],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.tealAccent.withOpacity(0.4),
+              color: Colors.blueAccent.withOpacity(0.3),
               blurRadius: 10,
               spreadRadius: 1,
               offset: const Offset(0, 4),
